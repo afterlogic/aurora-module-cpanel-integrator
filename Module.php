@@ -22,8 +22,6 @@ class Module extends \Aurora\System\Module\AbstractModule
 
 	public function init()
 	{
-		$this->oMailModule = \Aurora\System\Api::GetModule('Mail');
-
 		$this->subscribeEvent('MailSignup::Signup::before', [$this, 'onAfterSignup']);
 		$this->subscribeEvent('Mail::ChangePassword::before', [$this, 'onBeforeChangePassword']);
 	}
@@ -154,7 +152,7 @@ class Module extends \Aurora\System\Module\AbstractModule
 	{
 		$mResult = true;
 
-		$oAccount = $this->oMailModule->GetAccount($aArguments['AccountId']);
+		$oAccount = $this->getMailModule()->GetAccount($aArguments['AccountId']);
 
 		if ($oAccount && $this->checkCanChangePassword($oAccount))
 		{
@@ -172,7 +170,7 @@ class Module extends \Aurora\System\Module\AbstractModule
 
 		if (!$bFound)
 		{
-			$oServer = $this->oMailModule->GetServer($oAccount->ServerId);
+			$oServer = $this->getMailModule()->GetServer($oAccount->ServerId);
 			if ($oServer && in_array($oServer->Name, $this->getConfig('SupportedServers')))
 			{
 				$bFound = true;
@@ -259,5 +257,15 @@ class Module extends \Aurora\System\Module\AbstractModule
 			}
 		}
 		return $bResult;
+	}
+
+	protected function getMailModule()
+	{
+		if (!$this->oMailModule)
+		{
+			$this->oMailModule = \Aurora\System\Api::GetModule('Mail');
+		}
+
+		return $this->oMailModule;
 	}
 }
