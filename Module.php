@@ -154,7 +154,7 @@ class Module extends \Aurora\System\Module\AbstractModule
 
 		$oAccount = $this->getMailModule()->GetAccount($aArguments['AccountId']);
 
-		if ($oAccount && $this->checkCanChangePassword($oAccount))
+		if ($oAccount && $this->checkCanChangePassword($oAccount) && $oAccount->getPassword() === $aArguments['CurrentPassword'])
 		{
 			$mResult = $this->сhangePassword($oAccount, $aArguments['NewPassword']);
 		}
