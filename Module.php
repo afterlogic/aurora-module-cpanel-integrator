@@ -23,7 +23,8 @@ class Module extends \Aurora\System\Module\AbstractModule
 	public function init()
 	{
 		$this->subscribeEvent('MailSignup::Signup::before', [$this, 'onAfterSignup']);
-		$this->subscribeEvent('Mail::ChangePassword::before', [$this, 'onBeforeChangePassword']);
+		$this->subscribeEvent('Mail::Account::ToResponseArray', array($this, 'onMailAccountToResponseArray'));
+		$this->subscribeEvent('Mail::ChangeAccountPassword', array($this, 'onChangeAccountPassword'));
 	}
 
 	public function getCpanel()
@@ -144,34 +145,63 @@ class Module extends \Aurora\System\Module\AbstractModule
 	}
 
 	/**
-	 *
+	 * Adds to account response array information about if allowed to change the password for this account.
 	 * @param array $aArguments
 	 * @param mixed $mResult
 	 */
-	public function onBeforeChangePassword($aArguments, &$mResult)
+	public function onMailAccountToResponseArray($aArguments, &$mResult)
 	{
-		$mResult = true;
+		$oAccount = $aArguments['Account'];
 
-		$oAccount = $this->getMailModule()->GetAccount($aArguments['AccountId']);
-
-		if ($oAccount && $this->checkCanChangePassword($oAccount) && $oAccount->getPassword() === $aArguments['CurrentPassword'])
+		if ($oAccount && $this->checkCanChangePassword($oAccount))
 		{
-			$mResult = $this->сhangePassword($oAccount, $aArguments['NewPassword']);
+			if (!isset($mResult['Extend']) || !is_array($mResult['Extend']))
+			{
+				$mResult['Extend'] = [];
+			}
+			$mResult['Extend']['AllowChangePasswordOnMailServer'] = true;
 		}
 	}
 
 	/**
-	 * @param CAccount $oAccount
+	 * Tries to change password for account if allowed.
+	 * @param array $aArguments
+	 * @param mixed $mResult
+	 */
+	public function onChangeAccountPassword($aArguments, &$mResult)
+	{
+		$bPasswordChanged = false;
+		$bBreakSubscriptions = false;
+		
+		$oAccount = $aArguments['Account'];
+		if ($oAccount && $this->checkCanChangePassword($oAccount) && $oAccount->getPassword() === $aArguments['CurrentPassword'])
+		{
+			$bPasswordChanged = $this->changePassword($oAccount, $aArguments['NewPassword']);
+			$bBreakSubscriptions = true; // break if Cpanel plugin tries to change password in this account. 
+		}
+		
+		if (is_array($mResult))
+		{
+			$mResult['AccountPasswordChanged'] = $mResult['AccountPasswordChanged'] || $bPasswordChanged;
+		}
+		
+		return $bBreakSubscriptions;
+	}
+
+	/**
+	 * Checks if allowed to change password for account.
+	 * @param \Aurora\Modules\Mail\Classes\Account $oAccount
 	 * @return bool
 	 */
 	protected function checkCanChangePassword($oAccount)
 	{
-		$bFound = in_array("*", $this->getConfig('SupportedServers', array()));
+		$bFound = in_array('*', $this->getConfig('SupportedServers', array()));
 
 		if (!$bFound)
 		{
-			$oServer = $this->getMailModule()->GetServer($oAccount->ServerId);
-			if ($oServer && in_array($oServer->Name, $this->getConfig('SupportedServers')))
+			$oServer = $oAccount->getServer();
+
+			if ($oServer && in_array($oServer->IncomingServer, $this->getConfig('SupportedServers')))
 			{
 				$bFound = true;
 			}
@@ -180,9 +210,13 @@ class Module extends \Aurora\System\Module\AbstractModule
 	}
 
 	/**
-	 * @param CAccount $oAccount
+	 * Tries to change password for account.
+	 * @param \Aurora\Modules\Mail\Classes\Account $oAccount
+	 * @param string $sPassword
+	 * @return boolean
+	 * @throws \Aurora\System\Exceptions\ApiException
 	 */
-	protected function сhangePassword($oAccount, $sPassword)
+	protected function changePassword($oAccount, $sPassword)
 	{
 		$bResult = false;
 		if (0 < strlen($oAccount->IncomingPassword) && $oAccount->IncomingPassword !== $sPassword )
