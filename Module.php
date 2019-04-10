@@ -98,7 +98,9 @@ class Module extends \Aurora\System\Module\AbstractModule
 					{
 						try
 						{
+							$bPrevState = \Aurora\System\Api::skipCheckUserRole(true);
 							$oAccount = \Aurora\Modules\Mail\Module::Decorator()->CreateAccount($oUser->EntityId, $sFriendlyName, $sLogin, $sLogin, $sPassword);
+							\Aurora\System\Api::skipCheckUserRole($bPrevState);
 							if ($oAccount instanceof \Aurora\Modules\Mail\Classes\Account)
 							{
 								$bResult = true;
