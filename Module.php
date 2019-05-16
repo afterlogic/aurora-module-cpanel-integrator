@@ -1141,4 +1141,20 @@ class Module extends \Aurora\System\Module\AbstractModule
 			'opt1'			=> 'or',
 		];
 	}
+	
+	public function SetMailQuota($Email, $Quota)
+	{
+		$oCpanel = $this->getCpanel();
+		$sLogin = \MailSo\Base\Utils::GetAccountNameFromEmail($Email);
+		$sDomain = \MailSo\Base\Utils::GetDomainFromEmail($Email);
+		$sResponse = $oCpanel->execute_action(self::UAPI, 'Email', 'edit_pop_quota', $oCpanel->getUsername(),
+			[
+				'email' => $sLogin,
+				'domain' => $sDomain,
+				'quota' => $Quota
+			]
+		);
+		$aResult = self::parseResponse($sResponse);
+		return $aResult;
+	}
 }
