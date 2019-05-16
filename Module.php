@@ -29,6 +29,8 @@ class Module extends \Aurora\System\Module\AbstractModule
 		$this->subscribeEvent('Mail::GetForward::before', array($this, 'onBeforeGetForward'));
 		$this->subscribeEvent('Mail::GetAutoresponder::before', array($this, 'onBeforeGetAutoresponder'));
 		$this->subscribeEvent('Mail::UpdateAutoresponder::before', array($this, 'onBeforeUpdateAutoresponder'));
+		$this->subscribeEvent('Mail::GetFilters::before', array($this, 'onBeforeGetFilters'));
+		$this->subscribeEvent('Mail::UpdateFilters::before', array($this, 'onBeforeUpdateFilters'));
 	}
 
 	public function getCpanel()
@@ -279,7 +281,7 @@ class Module extends \Aurora\System\Module\AbstractModule
 						{
 							$mSubscriptionResult = [
 								'Error' => [
-									'message'	=> $aDeletingResult['Error']
+									'message' => $aDeletingResult['Error']
 								]
 							];
 						}
@@ -322,7 +324,7 @@ class Module extends \Aurora\System\Module\AbstractModule
 					{
 						$mSubscriptionResult = [
 							'Error' => [
-								'message'	=> $aResult['Error']
+								'message' => $aResult['Error']
 							]
 						];
 					}
@@ -364,7 +366,7 @@ class Module extends \Aurora\System\Module\AbstractModule
 					{
 						$mSubscriptionResult = [
 							'Error' => [
-								'message'	=> $aResult['Error']
+								'message' => $aResult['Error']
 							]
 						];
 					}
@@ -417,7 +419,123 @@ class Module extends \Aurora\System\Module\AbstractModule
 					{
 						$mSubscriptionResult = [
 							'Error' => [
-								'message'	=> $aResult['Error']
+								'message' => $aResult['Error']
+							]
+						];
+					}
+				}
+			}
+		}
+		catch(\Exception $oException)
+		{}
+
+		return true; // breaking subscriptions to prevent update in parent module
+	}
+
+	public function onBeforeGetFilters($aArgs, &$mResult, &$mSubscriptionResult)
+	{
+		$mResult = [];
+
+		try
+		{
+			$oCpanel = $this->getCpanel();
+			if (isset($aArgs['AccountID']) && $oCpanel)
+			{
+				//check if accountID belongs to authorized user
+				$oUser = \Aurora\System\Api::getAuthenticatedUser();
+				$oAccount = \Aurora\System\Api::GetModule('Mail')->GetAccount($aArgs['AccountID']);
+				if ($oAccount instanceof \Aurora\Modules\Mail\Classes\Account
+					&& $oUser
+					&& $oAccount->IdUser === $oUser->EntityId)
+				{
+					$aResult = $this->getFiltersList($oAccount);
+					if ($aResult['Status'])
+					{
+						$mResult = $aResult['Filters'];
+					}
+					elseif (isset($aResult['Error']))
+					{
+						$mSubscriptionResult = [
+							'Error' => [
+								'message' => $aResult['Error']
+							]
+						];
+					}
+				}
+			}
+		}
+		catch(\Exception $oException)
+		{}
+
+		return true; // breaking subscriptions to prevent update in parent module
+	}
+
+	public function onBeforeUpdateFilters($aArgs, &$mResult, &$mSubscriptionResult)
+	{
+		$mResult = false;
+
+		try
+		{
+			$oCpanel = $this->getCpanel();
+			if (isset($aArgs['AccountID'])
+				&& isset($aArgs['Filters'])
+				&& is_array($aArgs['Filters'])
+				&& !empty($aArgs['Filters'])
+				&& $oCpanel)
+			{
+				//check if accountID belongs to authorized user
+				$oUser = \Aurora\System\Api::getAuthenticatedUser();
+				$oAccount = \Aurora\System\Api::GetModule('Mail')->GetAccount($aArgs['AccountID']);
+				if ($oAccount instanceof \Aurora\Modules\Mail\Classes\Account
+					&& $oUser
+					&& $oAccount->IdUser === $oUser->EntityId)
+				{
+					$aResult = $this->removeSupportedFilters($oAccount);
+					if ($aResult['Status'])
+					{
+						foreach ($aArgs['Filters'] as $aWebmailFilter)
+						{
+							$aFilterProperty = self::convertWebmailFIlterToCPanelFIlter($aWebmailFilter, $oAccount);
+							//create filter
+							$sCreationResponse = $oCpanel->execute_action(self::UAPI, 'Email', 'store_filter', $oCpanel->getUsername(),
+								$aFilterProperty
+							);
+							$aCreationResult = self::parseResponse($sCreationResponse);
+							if (isset($aCreationResult['Error']))
+							{
+								$mSubscriptionResult = [
+									'Error' => [
+										'message'	=> $aCreationResult['Error']
+									]
+								];
+							}
+							//disable filter if needed
+							if (!$aWebmailFilter['Enable'])
+							{
+								$sDisableResponse = $oCpanel->execute_action(self::UAPI, 'Email', 'disable_filter', $oCpanel->getUsername(),
+									[
+										'account'	=> $oAccount->Email,
+										'filtername'	=> $aFilterProperty['filtername']
+									]
+								);
+								$aDisableResult = self::parseResponse($sDisableResponse);
+								if (isset($aDisableResult['Error']))
+								{
+									$mSubscriptionResult = [
+										'Error' => [
+											'message'	=> $aDisableResult['Error']
+										]
+									];
+								}
+							}
+							$mResult = true;
+						}
+					}
+					elseif (isset($aResult['Error']))
+					{
+						$mSubscriptionResult = [
+							'Error' => [
+								'message' => $aResult['Error']
 							]
 						];
 					}
@@ -575,7 +693,7 @@ class Module extends \Aurora\System\Module\AbstractModule
 			{
 				$aResult = [
 					'Error' => [
-						'message'	=> $oResult->error
+						'message' => $oResult->error
 					]
 				];
 			}
@@ -585,7 +703,7 @@ class Module extends \Aurora\System\Module\AbstractModule
 			{
 				$aResult = [
 					'Error' => [
-						'message'	=> $oResult->result->errors[0]
+						'message' => $oResult->result->errors[0]
 					]
 				];
 			}
@@ -661,7 +779,7 @@ class Module extends \Aurora\System\Module\AbstractModule
 				&& isset($oResult->result->data->subject)
 			)
 			{
-				if ($oResult->result->data->stop !== NULL && $oResult->result->data->stop < time())
+				if ($oResult->result->data->stop !== null && $oResult->result->data->stop < time())
 				{
 					$bEnable = false;
 				}
@@ -736,7 +854,124 @@ class Module extends \Aurora\System\Module\AbstractModule
 		return $aResult;
 	}
 
-	static function parseResponse($sResponse)
+	protected function getFiltersList($oAccount)
+	{
+		$aResult = [
+			'Status' => false
+		];
+
+		$oCpanel = $this->getCpanel();
+		if ($oCpanel && $oAccount)
+		{
+			$sResult = $oCpanel->execute_action(self::UAPI, 'Email', 'list_filters', $oCpanel->getUsername(),
+				[
+					'account' => $oAccount->Email
+				]
+			);
+			$oResult = \json_decode($sResult);
+
+			if ($oResult
+				&& isset($oResult->result)
+				&& isset($oResult->result->data)
+				&& is_array($oResult->result->data)
+				&& !empty($oResult->result->data)
+			)
+			{
+				$aResult = [
+					'Status'	=> true,
+					'Filters'	=> self::convertCPanelFIltersToWebmailFIlters($oResult->result->data, $oAccount)
+				];
+			}
+			else if ($oResult && isset($oResult->error))
+			{
+				$aResult = [
+					'Status'	=> false,
+					'Error'	=> [
+						'message'	=> $oResult->error
+					]
+				];
+			}
+			else if ($oResult && isset($oResult->result)
+				&& isset($oResult->result->errors) && !empty($oResult->result->errors)
+				&& isset($oResult->result->errors[0]))
+			{
+				$aResult = [
+					'Status'	=> false,
+					'Error'	=> [
+						'message'	=> $oResult->result->errors[0]
+					]
+				];
+			}
+		}
+
+		return $aResult;
+	}
+
+	protected function removeSupportedFilters($oAccount)
+	{
+		$aResult = [
+			'Status' => false
+		];
+
+		if ($oAccount)
+		{
+			$aResult = $this->getFiltersList($oAccount);
+			if ($aResult['Status'])
+			{
+				$aSuportedFilterNames = array_map(function ($aFilter) {
+					return $aFilter['Filtername'];
+				}, $aResult['Filters']);
+				$oCpanel = $this->getCpanel();
+				if ($oCpanel)
+				{
+					$bDelResult = true;
+					foreach ($aSuportedFilterNames as $sSuportedFilterName)
+					{
+						$sResponse = $oCpanel->execute_action(self::UAPI, 'Email', 'delete_filter', $oCpanel->getUsername(),
+							[
+								'account'		=> $oAccount->Email,
+								'filtername'		=> $sSuportedFilterName
+							]
+						);
+						$aDelResult = self::parseResponse($sResponse);
+						if (!$aDelResult['Status'])
+						{
+							$bDelResult = false;
+							if (isset($aDelResult['Error']))
+							{
+								$aResult = [
+									'Status'	=> false,
+									'Error'	=> $aDelResult['Error']
+								];
+							}
+							break;
+						}
+					}
+					if ($bDelResult)
+					{
+						$aResult = [
+							'Status' => true
+						];
+					}
+				}
+				
+			}
+		}
+
+		return $aResult;
+	}
+	public static function getImapNamespace($oAccount)
+	{
+		static $oNamespace = null;
+		if ($oNamespace === null)
+		{
+			$oNamespace = \Aurora\System\Api::GetModule('Mail')->getMailManager()->_getImapClient($oAccount)->GetNamespace();
+		}
+
+		return $oNamespace;
+	}
+
+	public static function parseResponse($sResponse)
 	{
 		$aResult = [
 			'Status' => false
@@ -772,5 +1007,138 @@ class Module extends \Aurora\System\Module\AbstractModule
 		}
 
 		return $aResult;
+	}
+
+	public static function convertCPanelFIltersToWebmailFIlters($aCPanelFilters, $oAccount)
+	{
+		$aResult = [];
+
+		foreach ($aCPanelFilters as $oCPanelFilter)
+		{
+			$iAction = null;
+			$iCondition = null;
+			$iField = null;
+
+			if ($oCPanelFilter->actions[0]->action === 'save')
+			{
+				if ($oCPanelFilter->actions[0]->dest === '/dev/null')
+				{
+					$iAction = \Aurora\Modules\Mail\Enums\FilterAction::DeleteFromServerImmediately;
+				}
+				else
+				{
+					$iAction = \Aurora\Modules\Mail\Enums\FilterAction::MoveToFolder;
+				}
+			}
+
+			switch ($oCPanelFilter->rules[0]->match)
+			{
+				case 'contains':
+					$iCondition = \Aurora\Modules\Mail\Enums\FilterCondition::ContainSubstring;
+					break;
+				case 'does not contain':
+					$iCondition = \Aurora\Modules\Mail\Enums\FilterCondition::NotContainSubstring;
+					break;
+				case 'is':
+					$iCondition = \Aurora\Modules\Mail\Enums\FilterCondition::ContainExactPhrase;
+					break;
+			}
+
+			switch ($oCPanelFilter->rules[0]->part)
+			{
+				case '$header_from:':
+					$iField = \Aurora\Modules\Mail\Enums\FilterFields::From;
+					break;
+				case '$header_to:':
+					$iField = \Aurora\Modules\Mail\Enums\FilterFields::To;
+					break;
+				case '$header_subject:':
+					$iField = \Aurora\Modules\Mail\Enums\FilterFields::Subject;
+					break;
+			}
+			$oNamespace = self::getImapNamespace($oAccount);
+
+			$sNamespace = \str_replace($oNamespace->GetPersonalNamespaceDelimiter(), '', $oNamespace->GetPersonalNamespace());
+
+			$aFolderNameParts = \explode('/', $oCPanelFilter->actions[0]->dest);
+			$sFolderFullName = '';
+			if (\count($aFolderNameParts)  > 1 && $aFolderNameParts[\count($aFolderNameParts) - 1] !== $sNamespace)
+			{
+				$sFolderFullName = $sNamespace . $aFolderNameParts[\count($aFolderNameParts) - 1];
+			}
+
+			if (isset($iAction) && isset($iCondition) && isset($iField)
+				&& (!empty($sFolderFullName) || $iAction === \Aurora\Modules\Mail\Enums\FilterAction::DeleteFromServerImmediately)
+			)
+			{
+				$aResult[] = [
+					'Action'			=> $iAction,
+					'Condition'			=> $iCondition,
+					'Enable'			=> (bool) $oCPanelFilter->enabled,
+					'Field'				=> $iField,
+					'Filter'			=> $oCPanelFilter->rules[0]->val,
+					'FolderFullName'	=> $sFolderFullName,
+					'Filtername'		=> $oCPanelFilter->filtername
+				];
+			}
+		}
+
+		return $aResult;
+	}
+
+	public static function convertWebmailFIlterToCPanelFIlter($aWebmailFilter, $oAccount)
+	{
+		$sAction = '';
+		$sPart = '';
+		$sMatch = '';
+		$oNamespace = self::getImapNamespace($oAccount);
+		$sNamespace = \str_replace($oNamespace->GetPersonalNamespaceDelimiter(), '', $oNamespace->GetPersonalNamespace());
+		$sDest = \str_replace($sNamespace, '/', $aWebmailFilter["FolderFullName"]);
+
+		switch ($aWebmailFilter["Action"])
+		{
+			case \Aurora\Modules\Mail\Enums\FilterAction::DeleteFromServerImmediately:
+				$sDest = '/dev/null';
+			case \Aurora\Modules\Mail\Enums\FilterAction::MoveToFolder:
+				$sAction = 'save';
+				break;
+		}
+
+		switch ($aWebmailFilter["Condition"])
+		{
+			case \Aurora\Modules\Mail\Enums\FilterCondition::ContainSubstring:
+				$sMatch = 'contains';
+				break;
+			case \Aurora\Modules\Mail\Enums\FilterCondition::NotContainSubstring:
+				$sMatch = 'does not contain';
+				break;
+			case \Aurora\Modules\Mail\Enums\FilterCondition::ContainExactPhrase:
+				$sMatch = 'is';
+				break;
+		}
+
+		switch ($aWebmailFilter["Field"])
+		{
+			case \Aurora\Modules\Mail\Enums\FilterFields::From:
+				$sPart = '$header_from:';
+				break;
+			case \Aurora\Modules\Mail\Enums\FilterFields::To:
+				$sPart = '$header_to:';
+				break;
+			case \Aurora\Modules\Mail\Enums\FilterFields::Subject:
+				$sPart = '$header_subject:';
+				break;
+		}
+
+		return [
+			'filtername'		=> \uniqid(),
+			'account'		=> $oAccount->Email,
+			'action1'		=> $sAction,
+			'dest1'			=> $sDest,
+			'part1'			=> $sPart,
+			'match1'		=> $sMatch,
+			'val1'			=> $aWebmailFilter['Filter'],
+			'opt1'			=> 'or',
+		];
 	}
 }
