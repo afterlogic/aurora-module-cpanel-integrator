@@ -26,5 +26,9 @@
 	"SupportedServers": [
 		["*"],
 		"array"
+	],
+	"AllowAliases": [
+		false,
+		"bool"
 	]
 }

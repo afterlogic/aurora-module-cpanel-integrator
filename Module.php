@@ -1141,6 +1141,19 @@ class Module extends \Aurora\System\Module\AbstractModule
 		];
 	}
 	
+	/**
+	 * Obtains list of module settings for authenticated user.
+	 * @return array
+	 */
+	public function GetSettings()
+	{
+		\Aurora\System\Api::checkUserRoleIsAtLeast(\Aurora\System\Enums\UserRole::Anonymous);
+		
+		return [
+			'AllowAliases' => $this->getConfig('AllowAliases', false),
+		];
+	}
+	
 	public function SetMailQuota($Email, $Quota)
 	{
 		$oCpanel = $this->getCpanel();
@@ -1155,5 +1168,154 @@ class Module extends \Aurora\System\Module\AbstractModule
 		);
 		$aResult = self::parseResponse($sResponse);
 		return $aResult;
+	}
+	
+	/**
+	 * Obtains all aliases for specified user.
+	 * @param int $UserId User identifier.
+	 * @return array|boolean
+	 */
+	public function GetAliases($UserId)
+	{
+		$oAuthenticatedUser = \Aurora\System\Api::getAuthenticatedUser();
+		
+		$oCoreDecorator = \Aurora\Modules\Core\Module::Decorator();
+		$oUser = $oCoreDecorator ? $oCoreDecorator->GetUser($UserId) : null;
+		$bUserFound = $oUser instanceof \Aurora\Modules\Core\Classes\User;
+		\Aurora\System\Api::Log($oAuthenticatedUser, \Aurora\System\Enums\LogLevel::Full, 'al-');
+		if ($bUserFound && $oAuthenticatedUser->Role === \Aurora\System\Enums\UserRole::TenantAdmin && $oUser->IdTenant === $oAuthenticatedUser->IdTenant)
+		{
+			\Aurora\System\Api::checkUserRoleIsAtLeast(\Aurora\System\Enums\UserRole::TenantAdmin);
+		}
+		else
+		{
+			\Aurora\System\Api::checkUserRoleIsAtLeast(\Aurora\System\Enums\UserRole::SuperAdmin);
+		}
+		
+		$oAccount = \Aurora\System\Api::GetModuleDecorator('Mail')->GetAccountByEmail($oUser->PublicId, $oUser->EntityId);
+		if ($oAccount)
+		{
+			$sDomain = preg_match('/.+@(.+)$/',  $oAccount->Email, $aMatches) && $aMatches[1] ? $aMatches[1] : '';
+			$sEmail = $oAccount->Email;
+			
+			$aAliases = [];
+
+			$oCpanel = $this->getCpanel();
+			if ($oCpanel && $sDomain && $sEmail)
+			{
+				$sResult = $oCpanel->execute_action(self::UAPI, 'Email', 'list_forwarders', $oCpanel->getUsername(),
+					[
+						'domain'	=> $sDomain
+					]
+				);
+				$oResult = \json_decode($sResult);
+				if ($oResult
+					&& isset($oResult->result)
+					&& isset($oResult->result->data)
+					&& is_array($oResult->result->data)
+				)
+				{
+					foreach ($oResult->result->data as $oForwarder)
+					{
+						$sFromEmail = $oForwarder->dest;
+						$sToEmail = $oForwarder->forward;
+						if ($sToEmail === $sEmail)
+						{
+							$aAliases[] = $sFromEmail;
+						}
+					}
+				}
+			}
+			
+			return [
+				'Domain' => $sDomain,
+				'Aliases' => $aAliases
+			];
+		}
+		
+		return false;
+	}
+	
+	/**
+	 * Creates new alias with specified name and domain.
+	 * @param int $UserId User identifier.
+	 * @param string $AliasName Alias name.
+	 * @param string $AliasDomain Alias domain.
+	 * @return boolean
+	 */
+	public function AddNewAlias($UserId, $AliasName, $AliasDomain)
+	{
+		$oAuthenticatedUser = \Aurora\System\Api::getAuthenticatedUser();
+		
+		$oCoreDecorator = \Aurora\Modules\Core\Module::Decorator();
+		$oUser = $oCoreDecorator ? $oCoreDecorator->GetUser($UserId) : null;
+		$bUserFound = $oUser instanceof \Aurora\Modules\Core\Classes\User;
+		\Aurora\System\Api::Log($oAuthenticatedUser, \Aurora\System\Enums\LogLevel::Full, 'al-');
+		if ($bUserFound && $oAuthenticatedUser->Role === \Aurora\System\Enums\UserRole::TenantAdmin && $oUser->IdTenant === $oAuthenticatedUser->IdTenant)
+		{
+			\Aurora\System\Api::checkUserRoleIsAtLeast(\Aurora\System\Enums\UserRole::TenantAdmin);
+		}
+		else
+		{
+			\Aurora\System\Api::checkUserRoleIsAtLeast(\Aurora\System\Enums\UserRole::SuperAdmin);
+		}
+		
+		$oMailDecorator = \Aurora\System\Api::GetModuleDecorator('Mail');
+		\Aurora\System\Api::Log($oUser->PublicId, \Aurora\System\Enums\LogLevel::Full, 'al-');
+		\Aurora\System\Api::Log($oUser->EntityId, \Aurora\System\Enums\LogLevel::Full, 'al-');
+		$oAccount = $bUserFound && $oMailDecorator ? $oMailDecorator->GetAccountByEmail($oUser->PublicId, $oUser->EntityId) : null;
+		\Aurora\System\Api::Log($oAccount, \Aurora\System\Enums\LogLevel::Full, 'al-');
+		if ($oAccount)
+		{
+		\Aurora\System\Api::Log($AliasDomain, \Aurora\System\Enums\LogLevel::Full, 'al-');
+		\Aurora\System\Api::Log($AliasName . '@' . $AliasDomain, \Aurora\System\Enums\LogLevel::Full, 'al-');
+		\Aurora\System\Api::Log($oAccount->Email, \Aurora\System\Enums\LogLevel::Full, 'al-');
+			return $this->createForwarder($AliasDomain, $AliasName . '@' . $AliasDomain, $oAccount->Email);
+		}
+		
+		return false;
+	}
+	
+	/**
+	 * Deletes aliases with specified emails.
+	 * @param int $UserId User identifier
+	 * @param array $Aliases Aliases emails.
+	 * @return boolean
+	 */
+	public function DeleteAlias($UserId, $Aliases)
+	{
+		$oAuthenticatedUser = \Aurora\System\Api::getAuthenticatedUser();
+		
+		$oCoreDecorator = \Aurora\Modules\Core\Module::Decorator();
+		$oUser = $oCoreDecorator ? $oCoreDecorator->GetUser($UserId) : null;
+		$bUserFound = $oUser instanceof \Aurora\Modules\Core\Classes\User;
+		
+		if ($bUserFound && $oAuthenticatedUser->Role === \Aurora\System\Enums\UserRole::TenantAdmin && $oUser->IdTenant === $oAuthenticatedUser->IdTenant)
+		{
+			\Aurora\System\Api::checkUserRoleIsAtLeast(\Aurora\System\Enums\UserRole::TenantAdmin);
+		}
+		else
+		{
+			\Aurora\System\Api::checkUserRoleIsAtLeast(\Aurora\System\Enums\UserRole::SuperAdmin);
+		}
+		
+		$mResult = false;
+		$oMailDecorator = \Aurora\System\Api::GetModuleDecorator('Mail');
+		$oAccount = $bUserFound && $oMailDecorator ? $oMailDecorator->GetAccountByEmail($oUser->PublicId, $oUser->EntityId) : null;
+		if ($oAccount)
+		{
+			foreach ($Aliases as $sAlias)
+			{
+				preg_match('/(.+)@(.+)$/',  $sAlias, $aMatches);
+				$AliasName = isset($aMatches[1]) ? $aMatches[1] : '';
+				$AliasDomain = isset($aMatches[2]) ? $aMatches[2] : '';
+				if ($this->deleteForwarder($AliasName . '@' . $AliasDomain, $oAccount->Email))
+				{
+					$mResult = true;
+				}
+			}
+		}
+		
+		return $mResult;
 	}
 }
