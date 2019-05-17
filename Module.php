@@ -874,7 +874,6 @@ class Module extends \Aurora\System\Module\AbstractModule
 				&& isset($oResult->result)
 				&& isset($oResult->result->data)
 				&& is_array($oResult->result->data)
-				&& !empty($oResult->result->data)
 			)
 			{
 				$aResult = [
