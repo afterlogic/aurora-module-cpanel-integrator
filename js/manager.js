@@ -17,7 +17,7 @@ module.exports = function (oAppData) {
 	if (ModulesManager.isModuleAvailable(Settings.ServerModuleName))
 	{
 		Cache = require('modules/%ModuleName%/js/Cache.js');
-		if (App.getUserRole() === Enums.UserRole.SuperAdmin || App.getUserRole() === Enums.UserRole.TenantAdmin)
+		if (App.getUserRole() === Enums.UserRole.SuperAdmin)
 		{
 			return {
 				/**
