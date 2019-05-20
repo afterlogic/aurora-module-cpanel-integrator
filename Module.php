@@ -1076,7 +1076,7 @@ class Module extends \Aurora\System\Module\AbstractModule
 					'Enable'			=> (bool) $oCPanelFilter->enabled,
 					'Field'				=> $iField,
 					'Filter'			=> $oCPanelFilter->rules[0]->val,
-					'FolderFullName'	=> $sFolderFullName,
+					'FolderFullName'	=> $iAction === \Aurora\Modules\Mail\Enums\FilterAction::DeleteFromServerImmediately ? '' : $sFolderFullName,
 					'Filtername'		=> $oCPanelFilter->filtername
 				];
 			}
