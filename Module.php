@@ -1145,13 +1145,73 @@ class Module extends \Aurora\System\Module\AbstractModule
 	 * Obtains list of module settings for authenticated user.
 	 * @return array
 	 */
-	public function GetSettings()
+	public function GetSettings($TenantId = null)
 	{
-		\Aurora\System\Api::checkUserRoleIsAtLeast(\Aurora\System\Enums\UserRole::Anonymous);
+		$oSettings = $this->GetModuleSettings();
+		if (!empty($TenantId))
+		{
+			\Aurora\System\Api::checkUserRoleIsAtLeast(\Aurora\System\Enums\UserRole::TenantAdmin);
+			$oTenant = \Aurora\System\Api::getTenantById($TenantId);
+
+			if ($oTenant)
+			{
+				return [
+					'CpanelHost' => $oSettings->GetTenantValue($oTenant->Name, 'CpanelHost', ''),
+					'CpanelPort' => $oSettings->GetTenantValue($oTenant->Name, 'CpanelPort', ''),
+					'CpanelUser' => $oSettings->GetTenantValue($oTenant->Name, 'CpanelUser', ''),
+					'CpanelHasPassword' => $oSettings->GetTenantValue($oTenant->Name, 'CpanelPassword', '') !== '',
+				];
+			}
+		}
 		
+		\Aurora\System\Api::checkUserRoleIsAtLeast(\Aurora\System\Enums\UserRole::SuperAdmin);
 		return [
-			'AllowAliases' => $this->getConfig('AllowAliases', false),
+			'CpanelHost' => $oSettings->GetValue('CpanelHost', ''),
+			'CpanelPort' => $oSettings->GetValue('CpanelPort', ''),
+			'CpanelUser' => $oSettings->GetValue('CpanelUser', ''),
+			'CpanelHasPassword' => $oSettings->GetValue('CpanelPassword', '') !== '',
+			'AllowAliases' => $oSettings->GetValue('AllowAliases', false),
 		];
+	}
+	
+	/**
+	 * Updates module's settings - saves them to config.json file or to user settings in db.
+	 * @param int $ContactsPerPage Count of contacts per page.
+	 * @return boolean
+	 */
+	public function UpdateSettings($CpanelHost, $CpanelPort, $CpanelUser, $CpanelPassword, $TenantId = null)
+	{
+		$oSettings = $this->GetModuleSettings();
+		if (!empty($TenantId))
+		{
+			\Aurora\System\Api::checkUserRoleIsAtLeast(\Aurora\System\Enums\UserRole::TenantAdmin);
+			$oTenant = \Aurora\System\Api::getTenantById($TenantId);
+
+			if ($oTenant)
+			{
+				$oSettings->SetTenantValue($oTenant->Name, 'CpanelHost', $CpanelHost);		
+				$oSettings->SetTenantValue($oTenant->Name, 'CpanelPort', $CpanelPort);		
+				$oSettings->SetTenantValue($oTenant->Name, 'CpanelUser', $CpanelUser);
+				if ($CpanelPassword !== '')
+				{
+					$oSettings->SetTenantValue($oTenant->Name, 'CpanelPassword', $CpanelPassword);		
+				}
+				return $oSettings->SaveTenantSettings($oTenant->Name);
+			}
+		}
+		else
+		{
+			\Aurora\System\Api::checkUserRoleIsAtLeast(\Aurora\System\Enums\UserRole::SuperAdmin);
+
+			$oSettings->SetValue('CpanelHost', $CpanelHost);
+			$oSettings->SetValue('CpanelPort', $CpanelPort);
+			$oSettings->SetValue('CpanelUser', $CpanelUser);
+			if ($CpanelPassword !== '')
+			{
+				$oSettings->SetValue('CpanelPassword', $CpanelPassword);
+			}
+			return $oSettings->Save();
+		}
 	}
 	
 	public function SetMailQuota($Email, $Quota)

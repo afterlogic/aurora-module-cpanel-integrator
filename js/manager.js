@@ -14,7 +14,7 @@ module.exports = function (oAppData) {
 	
 	Settings.init(oAppData);
 	
-	if (ModulesManager.isModuleAvailable(Settings.ServerModuleName) && ModulesManager.isModuleAvailable('MailDomains'))
+	if (ModulesManager.isModuleAvailable(Settings.ServerModuleName))
 	{
 		Cache = require('modules/%ModuleName%/js/Cache.js');
 		if (App.getUserRole() === Enums.UserRole.SuperAdmin || App.getUserRole() === Enums.UserRole.TenantAdmin)
@@ -27,7 +27,7 @@ module.exports = function (oAppData) {
 				 */
 				start: function (ModulesManager)
 				{
-					if (Settings.AllowAliases)
+					if (ModulesManager.isModuleAvailable('MailDomains') && Settings.AllowAliases)
 					{
 						ModulesManager.run('AdminPanelWebclient', 'registerAdminPanelTab', [
 							function(resolve) {
@@ -43,6 +43,19 @@ module.exports = function (oAppData) {
 							TextUtils.i18n('%MODULENAME%/LABEL_SETTINGS_TAB_ALIASES')
 						]);
 					}
+					ModulesManager.run('AdminPanelWebclient', 'registerAdminPanelTab', [
+						function(resolve) {
+							require.ensure(
+								['modules/%ModuleName%/js/views/AdminSettingsView.js'],
+								function() {
+									resolve(require('modules/%ModuleName%/js/views/AdminSettingsView.js'));
+								},
+								'admin-bundle'
+							);
+						},
+						Settings.HashModuleName,
+						TextUtils.i18n('%MODULENAME%/ADMIN_SETTINGS_TAB_LABEL')
+					]);
 				}
 			};
 		}
