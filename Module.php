@@ -31,6 +31,7 @@ class Module extends \Aurora\System\Module\AbstractModule
 		$this->subscribeEvent('Mail::UpdateAutoresponder::before', array($this, 'onBeforeUpdateAutoresponder'));
 		$this->subscribeEvent('Mail::GetFilters::before', array($this, 'onBeforeGetFilters'));
 		$this->subscribeEvent('Mail::UpdateFilters::before', array($this, 'onBeforeUpdateFilters'));
+		$this->subscribeEvent('Mail::UpdateQuota', array($this, 'onUpdateQuota'));
 	}
 
 	public function getCpanel()
@@ -1214,16 +1215,21 @@ class Module extends \Aurora\System\Module\AbstractModule
 		}
 	}
 	
-	public function SetMailQuota($Email, $Quota)
+	public function onUpdateQuota($aArgs, &$mResult)
+	{
+		$mResult = $this->setMailQuota($aArgs['Email'], $aArgs['QuotaMb']);
+	}
+	
+	protected function setMailQuota($sEmail, $iQuota)
 	{
 		$oCpanel = $this->getCpanel();
-		$sLogin = \MailSo\Base\Utils::GetAccountNameFromEmail($Email);
-		$sDomain = \MailSo\Base\Utils::GetDomainFromEmail($Email);
+		$sLogin = \MailSo\Base\Utils::GetAccountNameFromEmail($sEmail);
+		$sDomain = \MailSo\Base\Utils::GetDomainFromEmail($sEmail);
 		$sResponse = $oCpanel->execute_action(self::UAPI, 'Email', 'edit_pop_quota', $oCpanel->getUsername(),
 			[
 				'email' => $sLogin,
 				'domain' => $sDomain,
-				'quota' => $Quota
+				'quota' => $iQuota
 			]
 		);
 		$aResult = self::parseResponse($sResponse);
