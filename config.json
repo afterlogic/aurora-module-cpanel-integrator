@@ -27,6 +27,10 @@
 		["*"],
 		"array"
 	],
+	"AllowCreateDeleteAccountOnCpanel": [
+		false,
+		"bool"
+	],
 	"AllowAliases": [
 		false,
 		"bool"

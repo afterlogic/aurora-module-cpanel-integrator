@@ -22,6 +22,14 @@ class Module extends \Aurora\System\Module\AbstractModule
 
 	public function init()
 	{
+		$oAuthenticatedUser = \Aurora\System\Api::getAuthenticatedUser();
+		if ($this->getConfig('AllowCreateDeleteAccountOnCpanel', false) && ($oAuthenticatedUser->Role === \Aurora\System\Enums\UserRole::SuperAdmin || $oAuthenticatedUser->Role === \Aurora\System\Enums\UserRole::TenantAdmin))
+		{
+			// Subscription shouldn't work for Anonymous because Signup subscription will work
+			// Subscription shouldn't work for Normal user because CPanel account should be created only for first user account
+			$this->subscribeEvent('Mail::CreateAccount::before', array($this, 'onBeforeCreateAccount'));
+			$this->subscribeEvent('Mail::DeleteAccount::before', array($this, 'onBeforeDeleteAccount'));
+		}
 		$this->subscribeEvent('MailSignup::Signup::before', [$this, 'onAfterSignup']);
 		$this->subscribeEvent('Mail::Account::ToResponseArray', array($this, 'onMailAccountToResponseArray'));
 		$this->subscribeEvent('Mail::ChangeAccountPassword', array($this, 'onChangeAccountPassword'));
@@ -34,7 +42,7 @@ class Module extends \Aurora\System\Module\AbstractModule
 		$this->subscribeEvent('Mail::UpdateQuota', array($this, 'onUpdateQuota'));
 	}
 
-	public function getCpanel()
+	public function getCpanel($iTenantId = 0)
 	{
 		if (!$this->oCpanel)
 		{
@@ -42,6 +50,17 @@ class Module extends \Aurora\System\Module\AbstractModule
 			$sPort = $this->getConfig('CpanelPort', '');
 			$sUser = $this->getConfig('CpanelUser', '');
 			$sPassword = $this->getConfig('CpanelPassword', '');
+			
+			$oAuthenticatedUser = \Aurora\System\Api::getAuthenticatedUser();
+			if ($iTenantId !== 0 && $oAuthenticatedUser->Role === \Aurora\System\Enums\UserRole::SuperAdmin)
+			{
+				$oSettings = $this->GetModuleSettings();
+				$oTenant = \Aurora\System\Api::getTenantById($iTenantId);
+				$sHost = $oSettings->GetTenantValue($oTenant->Name, 'CpanelHost', '');
+				$sPort = $oSettings->GetTenantValue($oTenant->Name, 'CpanelPort', '');
+				$sUser = $oSettings->GetTenantValue($oTenant->Name, 'CpanelUser', '');
+				$sPassword = $oSettings->GetTenantValue($oTenant->Name, 'CpanelPassword', '');
+			}
 
 			$this->oCpanel = new \Gufy\CpanelPhp\Cpanel([
 				'host'		=> "https://" . $sHost . ":" . $sPort,
@@ -153,6 +172,62 @@ class Module extends \Aurora\System\Module\AbstractModule
 		return true; // break subscriptions to prevent account creation in other modules
 	}
 
+	public function onBeforeCreateAccount($aArgs, &$mResult)
+	{
+//		$iUserId = $aArgs['UserId'];
+//		$oUser = \Aurora\System\Api::getUserById($iUserId);
+//		$sAccountEmail = $aArgs['Email'];
+//		if ($oUser instanceof \Aurora\Modules\Core\Classes\User && $sAccountEmail === $oUser->PublicId)
+//		{
+//			$sDomain = \MailSo\Base\Utils::GetDomainFromEmail($sAccountEmail);
+//			if (!empty($sDomain))
+//			{
+//				$iQuota = (int) $this->getConfig('UserDefaultQuotaMB', 1);
+//				$oCpanel = $this->getCpanel($oUser->IdTenant);
+//				$sResult = $oCpanel->execute_action(self::UAPI, 'Email', 'add_pop', $oCpanel->getUsername(),
+//					[
+//						'email' => $aArgs['IncomingLogin'],
+//						'password' => $aArgs['IncomingPassword'],
+//						'quota' => $iQuota,
+//						'domain' => $sDomain
+//					]
+//				);
+//				$aResult = self::parseResponse($sResult, false);
+//				if ($aResult['Status'] === false && strrpos(strtolower($aResult['Error']), 'exists') === false)
+//				{
+//					throw new \Exception($aResult['Error']);
+//				}
+//			}
+//		}
+	}
+	
+	public function onBeforeDeleteAccount($aArgs, &$mResult)
+	{
+//		$iAccountId	 = $aArgs['AccountID'];
+//		$oAccount = \Aurora\Modules\Mail\Module::Decorator()->GetAccount($iAccountId);
+//		$oUser = \Aurora\System\Api::getUserById($oAccount->IdUser);
+//		if ($oUser instanceof \Aurora\Modules\Core\Classes\User && $oAccount->Email === $oUser->PublicId)
+//		{
+//			$sDomain = \MailSo\Base\Utils::GetDomainFromEmail($oAccount->Email);
+//			if (!empty($sDomain))
+//			{
+//				try
+//				{
+//					$oCpanel = $this->getCpanel($oUser->IdTenant);
+//					$oCpanel->execute_action(self::UAPI, 'Email', 'delete_pop', $oCpanel->getUsername(),
+//						[
+//							'email' => $oAccount->Email,
+//							'domain' => $sDomain
+//						]
+//					);
+//				}
+//				catch(\Exception $oException)
+//				{
+//				}
+//			}
+//		}
+	}
+	
 	/**
 	 * Adds to account response array information about if allowed to change the password for this account.
 	 * @param array $aArguments
@@ -713,13 +788,13 @@ class Module extends \Aurora\System\Module\AbstractModule
 		return $aResult;
 	}
 
-	protected function deleteForwarder($sAddress, $sForwarder)
+	protected function deleteForwarder($sAddress, $sForwarder, $iTenantId = 0)
 	{
 		$aResult = [
 			'Status' => false
 		];
 
-		$oCpanel = $this->getCpanel();
+		$oCpanel = $this->getCpanel($iTenantId);
 		if ($oCpanel && $sAddress && $sForwarder)
 		{
 			$sResponse = $oCpanel->execute_action(self::UAPI, 'Email', 'delete_forwarder', $oCpanel->getUsername(),
@@ -734,13 +809,13 @@ class Module extends \Aurora\System\Module\AbstractModule
 		return $aResult;
 	}
 
-	protected function createForwarder($sDomain, $sEmail, $sForwardEmail)
+	protected function createForwarder($sDomain, $sEmail, $sForwardEmail, $iTenantId = 0)
 	{
 		$aResult = [
 			'Status' => false
 		];
 
-		$oCpanel = $this->getCpanel();
+		$oCpanel = $this->getCpanel($iTenantId);
 		if ($oCpanel && $sDomain && $sEmail && $sForwardEmail)
 		{
 			$sResponse = $oCpanel->execute_action(self::UAPI, 'Email', 'add_forwarder', $oCpanel->getUsername(),
@@ -971,7 +1046,7 @@ class Module extends \Aurora\System\Module\AbstractModule
 		return $oNamespace;
 	}
 
-	public static function parseResponse($sResponse)
+	public static function parseResponse($sResponse, $bAllowException = true)
 	{
 		$aResult = [
 			'Status' => false
@@ -1006,6 +1081,11 @@ class Module extends \Aurora\System\Module\AbstractModule
 			];
 		}
 
+		if ($bAllowException && $aResult['Status'] === false)
+		{
+			throw new \Exception($aResult['Error']);
+		}
+		
 		return $aResult;
 	}
 
@@ -1149,6 +1229,18 @@ class Module extends \Aurora\System\Module\AbstractModule
 	public function GetSettings($TenantId = null)
 	{
 		$oSettings = $this->GetModuleSettings();
+		
+		if (empty($TenantId))
+		{
+			$oAuthenticatedUser = \Aurora\System\Api::getAuthenticatedUser();
+			if ($oAuthenticatedUser->Role === \Aurora\System\Enums\UserRole::TenantAdmin)
+			{
+				return [
+					'AllowAliases' => $oSettings->GetValue('AllowAliases', false),
+				];
+			}
+		}
+		
 		if (!empty($TenantId))
 		{
 			\Aurora\System\Api::checkUserRoleIsAtLeast(\Aurora\System\Enums\UserRole::TenantAdmin);
@@ -1217,12 +1309,12 @@ class Module extends \Aurora\System\Module\AbstractModule
 	
 	public function onUpdateQuota($aArgs, &$mResult)
 	{
-		$mResult = $this->setMailQuota($aArgs['Email'], $aArgs['QuotaMb']);
+		$mResult = $this->setMailQuota($aArgs['TenantId'], $aArgs['Email'], $aArgs['QuotaMb']);
 	}
 	
-	protected function setMailQuota($sEmail, $iQuota)
+	protected function setMailQuota($iTenantId, $sEmail, $iQuota)
 	{
-		$oCpanel = $this->getCpanel();
+		$oCpanel = $this->getCpanel($iTenantId);
 		$sLogin = \MailSo\Base\Utils::GetAccountNameFromEmail($sEmail);
 		$sDomain = \MailSo\Base\Utils::GetDomainFromEmail($sEmail);
 		$sResponse = $oCpanel->execute_action(self::UAPI, 'Email', 'edit_pop_quota', $oCpanel->getUsername(),
@@ -1236,6 +1328,30 @@ class Module extends \Aurora\System\Module\AbstractModule
 		return $aResult;
 	}
 	
+	protected function getDomainForwarders($sEmail, $sDomain, $iTenantId = 0)
+	{
+		$oCpanel = $this->getCpanel($iTenantId);
+		if ($oCpanel && $sDomain && $sEmail)
+		{
+			$sResult = $oCpanel->execute_action(self::UAPI, 'Email', 'list_forwarders', $oCpanel->getUsername(),
+				[
+					'domain' => $sDomain
+				]
+			);
+			$oResult = \json_decode($sResult);
+			if ($oResult
+				&& isset($oResult->result)
+				&& isset($oResult->result->data)
+				&& is_array($oResult->result->data)
+			)
+			{
+				return $oResult->result->data;
+			}
+		}
+		
+		return [];
+	}
+
 	/**
 	 * Obtains all aliases for specified user.
 	 * @param int $UserId User identifier.
@@ -1248,7 +1364,6 @@ class Module extends \Aurora\System\Module\AbstractModule
 		$oCoreDecorator = \Aurora\Modules\Core\Module::Decorator();
 		$oUser = $oCoreDecorator ? $oCoreDecorator->GetUser($UserId) : null;
 		$bUserFound = $oUser instanceof \Aurora\Modules\Core\Classes\User;
-		\Aurora\System\Api::Log($oAuthenticatedUser, \Aurora\System\Enums\LogLevel::Full, 'al-');
 		if ($bUserFound && $oAuthenticatedUser->Role === \Aurora\System\Enums\UserRole::TenantAdmin && $oUser->IdTenant === $oAuthenticatedUser->IdTenant)
 		{
 			\Aurora\System\Api::checkUserRoleIsAtLeast(\Aurora\System\Enums\UserRole::TenantAdmin);
@@ -1261,38 +1376,21 @@ class Module extends \Aurora\System\Module\AbstractModule
 		$oAccount = \Aurora\System\Api::GetModuleDecorator('Mail')->GetAccountByEmail($oUser->PublicId, $oUser->EntityId);
 		if ($oAccount)
 		{
-			$sDomain = preg_match('/.+@(.+)$/',  $oAccount->Email, $aMatches) && $aMatches[1] ? $aMatches[1] : '';
 			$sEmail = $oAccount->Email;
+			$sDomain = preg_match('/.+@(.+)$/',  $sEmail, $aMatches) && $aMatches[1] ? $aMatches[1] : '';
 			
+			$aForwarders = $this->getDomainForwarders($sEmail, $sDomain, $oUser->IdTenant);
 			$aAliases = [];
-
-			$oCpanel = $this->getCpanel();
-			if ($oCpanel && $sDomain && $sEmail)
+			foreach ($aForwarders as $oForwarder)
 			{
-				$sResult = $oCpanel->execute_action(self::UAPI, 'Email', 'list_forwarders', $oCpanel->getUsername(),
-					[
-						'domain'	=> $sDomain
-					]
-				);
-				$oResult = \json_decode($sResult);
-				if ($oResult
-					&& isset($oResult->result)
-					&& isset($oResult->result->data)
-					&& is_array($oResult->result->data)
-				)
+				$sFromEmail = $oForwarder->dest;
+				$sToEmail = $oForwarder->forward;
+				if ($sToEmail === $sEmail)
 				{
-					foreach ($oResult->result->data as $oForwarder)
-					{
-						$sFromEmail = $oForwarder->dest;
-						$sToEmail = $oForwarder->forward;
-						if ($sToEmail === $sEmail)
-						{
-							$aAliases[] = $sFromEmail;
-						}
-					}
+					$aAliases[] = $sFromEmail;
 				}
 			}
-			
+
 			return [
 				'Domain' => $sDomain,
 				'Aliases' => $aAliases
@@ -1316,7 +1414,6 @@ class Module extends \Aurora\System\Module\AbstractModule
 		$oCoreDecorator = \Aurora\Modules\Core\Module::Decorator();
 		$oUser = $oCoreDecorator ? $oCoreDecorator->GetUser($UserId) : null;
 		$bUserFound = $oUser instanceof \Aurora\Modules\Core\Classes\User;
-		\Aurora\System\Api::Log($oAuthenticatedUser, \Aurora\System\Enums\LogLevel::Full, 'al-');
 		if ($bUserFound && $oAuthenticatedUser->Role === \Aurora\System\Enums\UserRole::TenantAdmin && $oUser->IdTenant === $oAuthenticatedUser->IdTenant)
 		{
 			\Aurora\System\Api::checkUserRoleIsAtLeast(\Aurora\System\Enums\UserRole::TenantAdmin);
@@ -1327,16 +1424,23 @@ class Module extends \Aurora\System\Module\AbstractModule
 		}
 		
 		$oMailDecorator = \Aurora\System\Api::GetModuleDecorator('Mail');
-		\Aurora\System\Api::Log($oUser->PublicId, \Aurora\System\Enums\LogLevel::Full, 'al-');
-		\Aurora\System\Api::Log($oUser->EntityId, \Aurora\System\Enums\LogLevel::Full, 'al-');
 		$oAccount = $bUserFound && $oMailDecorator ? $oMailDecorator->GetAccountByEmail($oUser->PublicId, $oUser->EntityId) : null;
-		\Aurora\System\Api::Log($oAccount, \Aurora\System\Enums\LogLevel::Full, 'al-');
 		if ($oAccount)
 		{
-		\Aurora\System\Api::Log($AliasDomain, \Aurora\System\Enums\LogLevel::Full, 'al-');
-		\Aurora\System\Api::Log($AliasName . '@' . $AliasDomain, \Aurora\System\Enums\LogLevel::Full, 'al-');
-		\Aurora\System\Api::Log($oAccount->Email, \Aurora\System\Enums\LogLevel::Full, 'al-');
-			return $this->createForwarder($AliasDomain, $AliasName . '@' . $AliasDomain, $oAccount->Email);
+			$sEmail = $oAccount->Email;
+			$sDomain = preg_match('/.+@(.+)$/',  $sEmail, $aMatches) && $aMatches[1] ? $aMatches[1] : '';
+			$aArgs = [
+				'TenantId' => $oUser->IdTenant,
+				'Forwarders' => $this->getDomainForwarders($sEmail, $sDomain, $oUser->IdTenant),
+				'AliasName' => $AliasName,
+				'AliasDomain' => $AliasDomain,
+				'ToEmail' => $oAccount->Email
+			];
+			$this->broadcastEvent(
+				'CreateAlias::before', 
+				$aArgs
+			);
+			return $this->createForwarder($AliasDomain, $AliasName . '@' . $AliasDomain, $oAccount->Email, $oUser->IdTenant);
 		}
 		
 		return false;
@@ -1375,7 +1479,7 @@ class Module extends \Aurora\System\Module\AbstractModule
 				preg_match('/(.+)@(.+)$/',  $sAlias, $aMatches);
 				$AliasName = isset($aMatches[1]) ? $aMatches[1] : '';
 				$AliasDomain = isset($aMatches[2]) ? $aMatches[2] : '';
-				if ($this->deleteForwarder($AliasName . '@' . $AliasDomain, $oAccount->Email))
+				if ($this->deleteForwarder($AliasName . '@' . $AliasDomain, $oAccount->Email, $oUser->IdTenant))
 				{
 					$mResult = true;
 				}
