@@ -23,12 +23,13 @@ class Module extends \Aurora\System\Module\AbstractModule
 	public function init()
 	{
 		$oAuthenticatedUser = \Aurora\System\Api::getAuthenticatedUser();
-		if ($this->getConfig('AllowCreateDeleteAccountOnCpanel', false) && ($oAuthenticatedUser->Role === \Aurora\System\Enums\UserRole::SuperAdmin || $oAuthenticatedUser->Role === \Aurora\System\Enums\UserRole::TenantAdmin))
+		if ($this->getConfig('AllowCreateDeleteAccountOnCpanel', false) && $oAuthenticatedUser && 
+				($oAuthenticatedUser->Role === \Aurora\System\Enums\UserRole::SuperAdmin || $oAuthenticatedUser->Role === \Aurora\System\Enums\UserRole::TenantAdmin))
 		{
 			// Subscription shouldn't work for Anonymous because Signup subscription will work
 			// Subscription shouldn't work for Normal user because CPanel account should be created only for first user account
 			$this->subscribeEvent('Mail::CreateAccount::before', array($this, 'onBeforeCreateAccount'));
-			$this->subscribeEvent('Mail::DeleteAccount::before', array($this, 'onBeforeDeleteAccount'));
+			$this->subscribeEvent('Mail::BeforeDeleteAccount', array($this, 'onBeforeDeleteAccount'));
 		}
 		$this->subscribeEvent('MailSignup::Signup::before', [$this, 'onAfterSignup']);
 		$this->subscribeEvent('Mail::Account::ToResponseArray', array($this, 'onMailAccountToResponseArray'));
@@ -174,58 +175,57 @@ class Module extends \Aurora\System\Module\AbstractModule
 
 	public function onBeforeCreateAccount($aArgs, &$mResult)
 	{
-//		$iUserId = $aArgs['UserId'];
-//		$oUser = \Aurora\System\Api::getUserById($iUserId);
-//		$sAccountEmail = $aArgs['Email'];
-//		if ($oUser instanceof \Aurora\Modules\Core\Classes\User && $sAccountEmail === $oUser->PublicId)
-//		{
-//			$sDomain = \MailSo\Base\Utils::GetDomainFromEmail($sAccountEmail);
-//			if (!empty($sDomain))
-//			{
-//				$iQuota = (int) $this->getConfig('UserDefaultQuotaMB', 1);
-//				$oCpanel = $this->getCpanel($oUser->IdTenant);
-//				$sResult = $oCpanel->execute_action(self::UAPI, 'Email', 'add_pop', $oCpanel->getUsername(),
-//					[
-//						'email' => $aArgs['IncomingLogin'],
-//						'password' => $aArgs['IncomingPassword'],
-//						'quota' => $iQuota,
-//						'domain' => $sDomain
-//					]
-//				);
-//				$aResult = self::parseResponse($sResult, false);
-//				if ($aResult['Status'] === false && strrpos(strtolower($aResult['Error']), 'exists') === false)
-//				{
-//					throw new \Exception($aResult['Error']);
-//				}
-//			}
-//		}
+		$iUserId = $aArgs['UserId'];
+		$oUser = \Aurora\System\Api::getUserById($iUserId);
+		$sAccountEmail = $aArgs['Email'];
+		if ($oUser instanceof \Aurora\Modules\Core\Classes\User && $sAccountEmail === $oUser->PublicId)
+		{
+			$sDomain = \MailSo\Base\Utils::GetDomainFromEmail($sAccountEmail);
+			if (!empty($sDomain))
+			{
+				$iQuota = (int) $this->getConfig('UserDefaultQuotaMB', 1);
+				$oCpanel = $this->getCpanel($oUser->IdTenant);
+				$sResult = $oCpanel->execute_action(self::UAPI, 'Email', 'add_pop', $oCpanel->getUsername(),
+					[
+						'email' => $aArgs['IncomingLogin'],
+						'password' => $aArgs['IncomingPassword'],
+						'quota' => $iQuota,
+						'domain' => $sDomain
+					]
+				);
+				$aResult = self::parseResponse($sResult, false);
+				if ($aResult['Status'] === false && strrpos(strtolower($aResult['Error']), 'exists') === false)
+				{
+					throw new \Exception($aResult['Error']);
+				}
+			}
+		}
 	}
 	
 	public function onBeforeDeleteAccount($aArgs, &$mResult)
 	{
-//		$iAccountId	 = $aArgs['AccountID'];
-//		$oAccount = \Aurora\Modules\Mail\Module::Decorator()->GetAccount($iAccountId);
-//		$oUser = \Aurora\System\Api::getUserById($oAccount->IdUser);
-//		if ($oUser instanceof \Aurora\Modules\Core\Classes\User && $oAccount->Email === $oUser->PublicId)
-//		{
-//			$sDomain = \MailSo\Base\Utils::GetDomainFromEmail($oAccount->Email);
-//			if (!empty($sDomain))
-//			{
-//				try
-//				{
-//					$oCpanel = $this->getCpanel($oUser->IdTenant);
-//					$oCpanel->execute_action(self::UAPI, 'Email', 'delete_pop', $oCpanel->getUsername(),
-//						[
-//							'email' => $oAccount->Email,
-//							'domain' => $sDomain
-//						]
-//					);
-//				}
-//				catch(\Exception $oException)
-//				{
-//				}
-//			}
-//		}
+		$oAccount = $aArgs['Account'];
+		$oUser = $aArgs['User'];
+		if ($oUser instanceof \Aurora\Modules\Core\Classes\User && $oAccount->Email === $oUser->PublicId)
+		{
+			$sDomain = \MailSo\Base\Utils::GetDomainFromEmail($oAccount->Email);
+			if (!empty($sDomain))
+			{
+				try
+				{
+					$oCpanel = $this->getCpanel($oUser->IdTenant);
+					$oCpanel->execute_action(self::UAPI, 'Email', 'delete_pop', $oCpanel->getUsername(),
+						[
+							'email' => $oAccount->Email,
+							'domain' => $sDomain
+						]
+					);
+				}
+				catch(\Exception $oException)
+				{
+				}
+			}
+		}
 	}
 	
 	/**
