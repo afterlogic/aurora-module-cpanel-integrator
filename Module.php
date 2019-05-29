@@ -183,7 +183,8 @@ class Module extends \Aurora\System\Module\AbstractModule
 			$sDomain = \MailSo\Base\Utils::GetDomainFromEmail($sAccountEmail);
 			if (!empty($sDomain))
 			{
-				$iQuota = (int) $this->getConfig('UserDefaultQuotaMB', 1);
+				$aTenantQuota = \Aurora\Modules\Mail\Module::Decorator()->GetEntitySpaceLimits('Tenant', $oUser->EntityId, $oUser->IdTenant);
+				$iQuota = $aTenantQuota ? $aTenantQuota['UserSpaceLimitMb'] : (int) $this->getConfig('UserDefaultQuotaMB', 1);
 				$oCpanel = $this->getCpanel($oUser->IdTenant);
 				$sResult = $oCpanel->execute_action(self::UAPI, 'Email', 'add_pop', $oCpanel->getUsername(),
 					[
