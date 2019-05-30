@@ -195,7 +195,7 @@ class Module extends \Aurora\System\Module\AbstractModule
 					]
 				);
 				$aResult = self::parseResponse($sResult, false);
-				if ($aResult['Status'] === false && strrpos(strtolower($aResult['Error']), 'exists') === false)
+				if ($aResult['Status'] === false && isset($aResult['Error']) && !empty($aResult['Error']) && strrpos(strtolower($aResult['Error']), 'exists') === false)
 				{
 					throw new \Exception($aResult['Error']);
 				}
