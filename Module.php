@@ -73,6 +73,15 @@ class Module extends \Aurora\System\Module\AbstractModule
 
 		return $this->oCpanel;
 	}
+	
+	protected function executeCpanelAction($oCpanel, $sModule, $sFunction, $aParams)
+	{
+		// There are no params in log because they can contain private data (password for example)
+		\Aurora\System\Api::Log('cPanel execute action. Module ' . $sModule . '. Function ' . $sFunction);
+		$sResult = $oCpanel->execute_action(self::UAPI, $sModule, $sFunction, $oCpanel->getUsername(), $aParams);
+		\Aurora\System\Api::Log($sResult);
+		return $sResult;
+	}
 
 	/**
 	 * Creates account with credentials specified in registration form
@@ -109,7 +118,7 @@ class Module extends \Aurora\System\Module\AbstractModule
 					$iQuota = (int) $this->getConfig('UserDefaultQuotaMB', 1);
 					try
 					{
-						$sResult = $oCpanel->execute_action(self::UAPI, 'Email', 'add_pop', $oCpanel->getUsername(),
+						$sResult = $this->executeCpanelAction($oCpanel, 'Email', 'add_pop',
 							[
 								'email'	=> $sLogin,
 								'password'	=> $sPassword,
@@ -186,7 +195,7 @@ class Module extends \Aurora\System\Module\AbstractModule
 				$aTenantQuota = \Aurora\Modules\Mail\Module::Decorator()->GetEntitySpaceLimits('Tenant', $oUser->EntityId, $oUser->IdTenant);
 				$iQuota = $aTenantQuota ? $aTenantQuota['UserSpaceLimitMb'] : (int) $this->getConfig('UserDefaultQuotaMB', 1);
 				$oCpanel = $this->getCpanel($oUser->IdTenant);
-				$sResult = $oCpanel->execute_action(self::UAPI, 'Email', 'add_pop', $oCpanel->getUsername(),
+				$sResult = $this->executeCpanelAction($oCpanel, 'Email', 'add_pop',
 					[
 						'email' => $aArgs['IncomingLogin'],
 						'password' => $aArgs['IncomingPassword'],
@@ -215,7 +224,7 @@ class Module extends \Aurora\System\Module\AbstractModule
 				try
 				{
 					$oCpanel = $this->getCpanel($oUser->IdTenant);
-					$oCpanel->execute_action(self::UAPI, 'Email', 'delete_pop', $oCpanel->getUsername(),
+					$this->executeCpanelAction($oCpanel, 'Email', 'delete_pop',
 						[
 							'email' => $oAccount->Email,
 							'domain' => $sDomain
@@ -574,7 +583,7 @@ class Module extends \Aurora\System\Module\AbstractModule
 						{
 							$aFilterProperty = self::convertWebmailFIlterToCPanelFIlter($aWebmailFilter, $oAccount);
 							//create filter
-							$sCreationResponse = $oCpanel->execute_action(self::UAPI, 'Email', 'store_filter', $oCpanel->getUsername(),
+							$sCreationResponse = $this->executeCpanelAction($oCpanel, 'Email', 'store_filter',
 								$aFilterProperty
 							);
 							$aCreationResult = self::parseResponse($sCreationResponse);
@@ -589,7 +598,7 @@ class Module extends \Aurora\System\Module\AbstractModule
 							//disable filter if needed
 							if (!$aWebmailFilter['Enable'])
 							{
-								$sDisableResponse = $oCpanel->execute_action(self::UAPI, 'Email', 'disable_filter', $oCpanel->getUsername(),
+								$sDisableResponse = $this->executeCpanelAction($oCpanel, 'Email', 'disable_filter',
 									[
 										'account'	=> $oAccount->Email,
 										'filtername'	=> $aFilterProperty['filtername']
@@ -747,7 +756,7 @@ class Module extends \Aurora\System\Module\AbstractModule
 		$oCpanel = $this->getCpanel();
 		if ($oCpanel && $sDomain && $sEmail)
 		{
-			$sResult = $oCpanel->execute_action(self::UAPI, 'Email', 'list_forwarders', $oCpanel->getUsername(),
+			$sResult = $this->executeCpanelAction($oCpanel, 'Email', 'list_forwarders',
 				[
 					'domain'	=> $sDomain,
 					'regex'	=> $sEmail
@@ -798,7 +807,7 @@ class Module extends \Aurora\System\Module\AbstractModule
 		$oCpanel = $this->getCpanel($iTenantId);
 		if ($oCpanel && $sAddress && $sForwarder)
 		{
-			$sResponse = $oCpanel->execute_action(self::UAPI, 'Email', 'delete_forwarder', $oCpanel->getUsername(),
+			$sResponse = $this->executeCpanelAction($oCpanel, 'Email', 'delete_forwarder',
 				[
 					'address'	=> $sAddress,
 					'forwarder'   => $sForwarder
@@ -819,7 +828,7 @@ class Module extends \Aurora\System\Module\AbstractModule
 		$oCpanel = $this->getCpanel($iTenantId);
 		if ($oCpanel && $sDomain && $sEmail && $sForwardEmail)
 		{
-			$sResponse = $oCpanel->execute_action(self::UAPI, 'Email', 'add_forwarder', $oCpanel->getUsername(),
+			$sResponse = $this->executeCpanelAction($oCpanel, 'Email', 'add_forwarder',
 				[
 					'domain'	=> $sDomain,
 					'email'	=> $sEmail,
@@ -842,7 +851,7 @@ class Module extends \Aurora\System\Module\AbstractModule
 		$oCpanel = $this->getCpanel();
 		if ($oCpanel && $sEmail)
 		{
-			$sResult = $oCpanel->execute_action(self::UAPI, 'Email', 'get_auto_responder', $oCpanel->getUsername(),
+			$sResult = $this->executeCpanelAction($oCpanel, 'Email', 'get_auto_responder',
 				[
 					'email' => $sEmail
 				]
@@ -912,7 +921,7 @@ class Module extends \Aurora\System\Module\AbstractModule
 				$iStopTime = time();
 				$iStartTime = $iStopTime - 1;
 			}
-			$sResponse = $oCpanel->execute_action(self::UAPI, 'Email', 'add_auto_responder', $oCpanel->getUsername(),
+			$sResponse = $this->executeCpanelAction($oCpanel, 'Email', 'add_auto_responder',
 				[
 					'email'	=> $sEmail,
 					'from'		=> '',
@@ -940,7 +949,7 @@ class Module extends \Aurora\System\Module\AbstractModule
 		$oCpanel = $this->getCpanel();
 		if ($oCpanel && $oAccount)
 		{
-			$sResult = $oCpanel->execute_action(self::UAPI, 'Email', 'list_filters', $oCpanel->getUsername(),
+			$sResult = $this->executeCpanelAction($oCpanel, 'Email', 'list_filters',
 				[
 					'account' => $oAccount->Email
 				]
@@ -1003,7 +1012,7 @@ class Module extends \Aurora\System\Module\AbstractModule
 					$bDelResult = true;
 					foreach ($aSuportedFilterNames as $sSuportedFilterName)
 					{
-						$sResponse = $oCpanel->execute_action(self::UAPI, 'Email', 'delete_filter', $oCpanel->getUsername(),
+						$sResponse = $this->executeCpanelAction($oCpanel, 'Email', 'delete_filter',
 							[
 								'account'		=> $oAccount->Email,
 								'filtername'		=> $sSuportedFilterName
@@ -1318,7 +1327,7 @@ class Module extends \Aurora\System\Module\AbstractModule
 		$oCpanel = $this->getCpanel($iTenantId);
 		$sLogin = \MailSo\Base\Utils::GetAccountNameFromEmail($sEmail);
 		$sDomain = \MailSo\Base\Utils::GetDomainFromEmail($sEmail);
-		$sResponse = $oCpanel->execute_action(self::UAPI, 'Email', 'edit_pop_quota', $oCpanel->getUsername(),
+		$sResponse = $this->executeCpanelAction($oCpanel, 'Email', 'edit_pop_quota',
 			[
 				'email' => $sLogin,
 				'domain' => $sDomain,
@@ -1334,7 +1343,7 @@ class Module extends \Aurora\System\Module\AbstractModule
 		$oCpanel = $this->getCpanel($iTenantId);
 		if ($oCpanel && $sDomain && $sEmail)
 		{
-			$sResult = $oCpanel->execute_action(self::UAPI, 'Email', 'list_forwarders', $oCpanel->getUsername(),
+			$sResult = $this->executeCpanelAction($oCpanel, 'Email', 'list_forwarders',
 				[
 					'domain' => $sDomain
 				]
