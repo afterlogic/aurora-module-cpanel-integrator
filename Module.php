@@ -43,7 +43,12 @@ class Module extends \Aurora\System\Module\AbstractModule
 		$this->subscribeEvent('Mail::UpdateQuota', array($this, 'onUpdateQuota'));
 	}
 
-	public function getCpanel($iTenantId = 0)
+	/**
+	 * Connects to cPanel. Uses main credentials if $iTenantId has not been passed, otherwise - tenant credentials to cPanel.
+	 * @param int $iTenantId
+	 * @return object
+	 */
+	protected function getCpanel($iTenantId = 0)
 	{
 		if (!$this->oCpanel)
 		{
@@ -64,16 +69,24 @@ class Module extends \Aurora\System\Module\AbstractModule
 			}
 
 			$this->oCpanel = new \Gufy\CpanelPhp\Cpanel([
-				'host'		=> "https://" . $sHost . ":" . $sPort,
-				'username'	=> $sUser,
-				'auth_type'	=> 'password',
-				'password'	=> $sPassword,
+				'host' => "https://" . $sHost . ":" . $sPort,
+				'username' => $sUser,
+				'auth_type' => 'password',
+				'password' => $sPassword,
 			]);
 		}
 
 		return $this->oCpanel;
 	}
 	
+	/**
+	 * Executes cPanel command, logs parameters and the result.
+	 * @param object $oCpanel
+	 * @param string $sModule
+	 * @param string $sFunction
+	 * @param array $aParams
+	 * @return string
+	 */
 	protected function executeCpanelAction($oCpanel, $sModule, $sFunction, $aParams)
 	{
 		// There are no params in log because they can contain private data (password for example)
@@ -102,7 +115,6 @@ class Module extends \Aurora\System\Module\AbstractModule
 			&& $oCpanel)
 		{
 			$bResult = false;
-			$oResult = null;
 			$sLogin = trim($aArgs['Login']);
 			$sPassword = trim($aArgs['Password']);
 			$sFriendlyName = isset($aArgs['Name']) ? trim($aArgs['Name']) : '';
@@ -118,19 +130,19 @@ class Module extends \Aurora\System\Module\AbstractModule
 					$iQuota = (int) $this->getConfig('UserDefaultQuotaMB', 1);
 					try
 					{
-						$sResult = $this->executeCpanelAction($oCpanel, 'Email', 'add_pop',
+						$sCpanelResponse = $this->executeCpanelAction($oCpanel, 'Email', 'add_pop',
 							[
-								'email'	=> $sLogin,
-								'password'	=> $sPassword,
+								'email' => $sLogin,
+								'password' => $sPassword,
 								'quota'	=> $iQuota,
-								'domain'	=> $sDomain
+								'domain' => $sDomain
 							]
 						);
-						$oResult = \json_decode($sResult);
+						$aParseResult = self::parseResponse($sCpanelResponse, false);
 					}
 					catch(\Exception $oException)
 					{}
-					if ($oResult && isset($oResult->result) && isset($oResult->result->data) && !empty($oResult->result->data))
+					if (is_array($aParseResult) && isset($aParseResult['Data']) && !empty($aParseResult['Data']))
 					{
 						try
 						{
@@ -162,13 +174,11 @@ class Module extends \Aurora\System\Module\AbstractModule
 							throw $oException;
 						}
 					}
-					else if ($oResult && isset($oResult->result)
-						&& isset($oResult->result->errors) && !empty($oResult->result->errors)
-						&& isset($oResult->result->errors[0]))
+					else if (is_array($aParseResult) && isset($aParseResult['Error']))
 					{
 						//If Account wasn't created - delete user
 						\Aurora\Modules\Core\Module::Decorator()->DeleteUser($oUser->EntityId);
-						throw new \Exception($oResult->result->errors[0]);
+						throw new \Exception($aParseResult['Error']);
 					}
 				}
 			}
@@ -182,6 +192,12 @@ class Module extends \Aurora\System\Module\AbstractModule
 		return true; // break subscriptions to prevent account creation in other modules
 	}
 
+	/**
+	 * Creates cPanel account before mail account will be created in the system.
+	 * @param array $aArgs
+	 * @param mixed $mResult
+	 * @throws \Exception
+	 */
 	public function onBeforeCreateAccount($aArgs, &$mResult)
 	{
 		$iUserId = $aArgs['UserId'];
@@ -195,7 +211,7 @@ class Module extends \Aurora\System\Module\AbstractModule
 				$aTenantQuota = \Aurora\Modules\Mail\Module::Decorator()->GetEntitySpaceLimits('Tenant', $oUser->EntityId, $oUser->IdTenant);
 				$iQuota = $aTenantQuota ? $aTenantQuota['UserSpaceLimitMb'] : (int) $this->getConfig('UserDefaultQuotaMB', 1);
 				$oCpanel = $this->getCpanel($oUser->IdTenant);
-				$sResult = $this->executeCpanelAction($oCpanel, 'Email', 'add_pop',
+				$sCpanelResponse = $this->executeCpanelAction($oCpanel, 'Email', 'add_pop',
 					[
 						'email' => $aArgs['IncomingLogin'],
 						'password' => $aArgs['IncomingPassword'],
@@ -203,7 +219,7 @@ class Module extends \Aurora\System\Module\AbstractModule
 						'domain' => $sDomain
 					]
 				);
-				$aResult = self::parseResponse($sResult, false);
+				$aResult = self::parseResponse($sCpanelResponse, false);
 				if ($aResult['Status'] === false && isset($aResult['Error']) && !empty($aResult['Error']) && strrpos(strtolower($aResult['Error']), 'exists') === false)
 				{
 					throw new \Exception($aResult['Error']);
@@ -212,6 +228,11 @@ class Module extends \Aurora\System\Module\AbstractModule
 		}
 	}
 	
+	/**
+	 * Deletes cPanel account, its aliases, forward, autoresponder and filters.
+	 * @param array $aArgs
+	 * @param mixed $mResult
+	 */
 	public function onBeforeDeleteAccount($aArgs, &$mResult)
 	{
 		$oAccount = $aArgs['Account'];
@@ -221,25 +242,59 @@ class Module extends \Aurora\System\Module\AbstractModule
 			$sDomain = \MailSo\Base\Utils::GetDomainFromEmail($oAccount->Email);
 			if (!empty($sDomain))
 			{
-				try
+				$aAliases = $this->Decorator()->GetAliases($oUser->EntityId);
+				if (isset($aAliases['Aliases']) && is_array($aAliases['Aliases']) && count($aAliases['Aliases']) > 0)
 				{
-					$oCpanel = $this->getCpanel($oUser->IdTenant);
-					$this->executeCpanelAction($oCpanel, 'Email', 'delete_pop',
-						[
-							'email' => $oAccount->Email,
-							'domain' => $sDomain
-						]
-					);
+					$this->Decorator()->DeleteAliases($oUser->EntityId, $aAliases['Aliases']);
 				}
-				catch(\Exception $oException)
-				{
-				}
+				
+				$aForwardArgs = [
+					'AccountID' => $oAccount->EntityId,
+					'Enable' => false,
+					'Email' => '',
+				];
+				$mForwardResult = false;
+				$this->onBeforeUpdateForward($aForwardArgs, $mForwardResult);
+				
+				$this->deleteAutoresponder($oAccount->Email);
+				
+				$oCpanel = $this->getCpanel($oUser->IdTenant);
+				$sCpanelResponse = $this->executeCpanelAction($oCpanel, 'Email', 'delete_pop',
+					[
+						'email' => $oAccount->Email,
+						'domain' => $sDomain,
+					]
+				);
+				self::parseResponse($sCpanelResponse); // throws exception in case if error has occured
 			}
 		}
 	}
 	
 	/**
-	 * Adds to account response array information about if allowed to change the password for this account.
+	 * Updates mail quota on cPanel.
+	 * @param array $aArgs
+	 * @param mixed $mResult
+	 */
+	public function onUpdateQuota($aArgs, &$mResult)
+	{
+		$iTenantId = $aArgs['TenantId'];
+		$sEmail = $aArgs['Email'];
+		$iQuota = $aArgs['QuotaMb'];
+		$oCpanel = $this->getCpanel($iTenantId);
+		$sLogin = \MailSo\Base\Utils::GetAccountNameFromEmail($sEmail);
+		$sDomain = \MailSo\Base\Utils::GetDomainFromEmail($sEmail);
+		$sCpanelResponse = $this->executeCpanelAction($oCpanel, 'Email', 'edit_pop_quota',
+			[
+				'email' => $sLogin,
+				'domain' => $sDomain,
+				'quota' => $iQuota
+			]
+		);
+		$mResult = self::parseResponse($sCpanelResponse); // throws exception in case if error has occured
+	}
+	
+	/**
+	 * Adds to account response array information about if it is allowed to change the password for this account.
 	 * @param array $aArguments
 	 * @param mixed $mResult
 	 */
@@ -258,7 +313,7 @@ class Module extends \Aurora\System\Module\AbstractModule
 	}
 
 	/**
-	 * Tries to change password for account if allowed.
+	 * Tries to change password for account if it is allowed.
 	 * @param array $aArguments
 	 * @param mixed $mResult
 	 */
@@ -282,354 +337,277 @@ class Module extends \Aurora\System\Module\AbstractModule
 		return $bBreakSubscriptions;
 	}
 
-	public function onBeforeUpdateForward($aArgs, &$mResult, &$mSubscriptionResult)
+	/**
+	 * Updates forward for specified account.
+	 * @param array $aArgs
+	 * @param mixed $mResult
+	 * @return boolean
+	 * @throws \Aurora\System\Exceptions\ApiException
+	 */
+	public function onBeforeUpdateForward($aArgs, &$mResult)
 	{
-		$mResult = false;
-
-		try
+		if (!isset($aArgs['AccountID']) || !isset($aArgs['Enable']) || !isset($aArgs['Email']) 
+				|| $aArgs['Enable'] && (empty(trim($aArgs['Email'])) || !filter_var(trim($aArgs['Email']), FILTER_VALIDATE_EMAIL)))
 		{
-			$oCpanel = $this->getCpanel();
-			if (isset($aArgs['AccountID'])
-				&& isset($aArgs['Enable'])
-				&& isset($aArgs['Email'])
-				&& !empty(trim($aArgs['Email']))
-				&& filter_var(trim($aArgs['Email']), FILTER_VALIDATE_EMAIL)
-				&& $oCpanel)
-			{
-				$sEmail = trim($aArgs['Email']);
-				//check if accountID belongs to authorized user
-				$oUser = \Aurora\System\Api::getAuthenticatedUser();
-				$oAccount = \Aurora\System\Api::GetModule('Mail')->GetAccount($aArgs['AccountID']);
-				if ($oAccount instanceof \Aurora\Modules\Mail\Classes\Account
-					&& $oUser
-					&& $oAccount->IdUser === $oUser->EntityId)
-				{
-					$sDomain = \MailSo\Base\Utils::GetDomainFromEmail($oAccount->Email);
-					//delete or create Forward depending on the Enable parameter
-					if ($aArgs['Enable'])
-					{//create forward
-						//remove forwarder if  already exists
-						$aResult = $this->getForwarder($sDomain, $oAccount->Email);
-						if (!empty($aResult) && isset($aResult['Email']))
-						{
-							$aDeletingResult = $this->deleteForwarder($oAccount->Email, $aResult['Email']);
-							if ($aDeletingResult['Status'])
-							{
-								$aCreationResult = $this->createForwarder($sDomain, $oAccount->Email, $sEmail);
-								if ($aCreationResult['Status'])
-								{
-									$mResult = true;
-								}
-								elseif (isset($aCreationResult['Error']))
-								{
-									$mSubscriptionResult = [
-										'Error' => [
-											'message'	=> $aCreationResult['Error']
-										]
-									];
-								}
-							}
-							elseif (isset($aDeletingResult['Error']))
-							{
-								$mSubscriptionResult = [
-									'Error' => [
-										'message'	=> $aDeletingResult['Error']
-									]
-								];
-							}
-						}
-						else
-						{
-							$aCreationResult = $this->createForwarder($sDomain, $oAccount->Email, $sEmail);
-							if ($aCreationResult['Status'])
-							{
-								$mResult = true;
-							}
-							elseif (isset($aCreationResult['Error']))
-							{
-								$mSubscriptionResult = [
-									'Error' => [
-										'message'	=> $aCreationResult['Error']
-									]
-								];
-							}
-						}
-						
-					}
-					else
-					{//delete forward
-						$aDeletingResult = $this->deleteForwarder($oAccount->Email, $sEmail);
-						if ($aDeletingResult['Status'])
-						{
-							$mResult = true;
-						}
-						elseif (isset($aDeletingResult['Error']))
-						{
-							$mSubscriptionResult = [
-								'Error' => [
-									'message' => $aDeletingResult['Error']
-								]
-							];
-						}
-					}
-				}
-			}
+			throw new \Aurora\System\Exceptions\ApiException(\Aurora\System\Notifications::InvalidInputParameter);
 		}
-		catch(\Exception $oException)
-		{}
 
-		return true; // breaking subscriptions to prevent update in parent module
-	}
-
-	public function onBeforeGetForward($aArgs, &$mResult, $mSubscriptionResult)
-	{
-		$mResult = false;
-
-		try
+		$oCpanel = $this->getCpanel();
+		$sToEmail = trim($aArgs['Email']);
+		
+		$oAuthenticatedUser = \Aurora\System\Api::getAuthenticatedUser();
+		$oAccount = \Aurora\System\Api::GetModule('Mail')->GetAccount($aArgs['AccountID']);
+		if ($oCpanel
+				&& $oAuthenticatedUser instanceof \Aurora\Modules\Core\Classes\User
+				&& $oAccount instanceof \Aurora\Modules\Mail\Classes\Account
+				// check if account belongs to authenticated user
+				&& ($oAccount->IdUser === $oAuthenticatedUser->EntityId
+						|| $oAuthenticatedUser->Role === \Aurora\System\Enums\UserRole::SuperAdmin
+						|| $oAuthenticatedUser->Role === \Aurora\System\Enums\UserRole::TenantAdmin))
 		{
-			if (isset($aArgs['AccountID']))
+			$sFromEmail = $oAccount->Email;
+			$sFromDomain = \MailSo\Base\Utils::GetDomainFromEmail($sFromEmail);
+			
+			// check if there is forwarder on cPanel
+			$aResult = $this->getForwarder($sFromDomain, $sFromEmail);
+			$bForwarderExists = is_array($aResult) && isset($aResult['Email']) && !empty($aResult['Email']);
+			$sOldToEmail = $bForwarderExists ? $aResult['Email'] : '';
+			// "Enable" indicates if forwarder should exist on cPanel
+			if ($aArgs['Enable'])
 			{
-				//check if accountID belongs to authorized user
-				$oUser = \Aurora\System\Api::getAuthenticatedUser();
-				$oAccount = \Aurora\System\Api::GetModule('Mail')->GetAccount($aArgs['AccountID']);
-				if ($oAccount instanceof \Aurora\Modules\Mail\Classes\Account
-					&& $oUser
-					&& $oAccount->IdUser === $oUser->EntityId)
+				if ($bForwarderExists)
 				{
-					$sDomain = \MailSo\Base\Utils::GetDomainFromEmail($oAccount->Email);
-					$aResult = $this->getForwarder($sDomain, $oAccount->Email);
-
-					if (!empty($aResult) && isset($aResult['Email']))
-					{
-						$mResult = [
-							'Enable'	=> true,
-							'Email'	=> $aResult['Email']
-						];
-					}
-					else if (!empty($aResult) && isset($aResult['Error']))
-					{
-						$mSubscriptionResult = [
-							'Error' => [
-								'message' => $aResult['Error']
-							]
-						];
-					}
-				}
-			}
-		}
-		catch(\Exception $oException)
-		{}
-
-		return true; // breaking subscriptions to prevent update in parent module
-	}
-
-	public function onBeforeGetAutoresponder($aArgs, &$mResult, $mSubscriptionResult)
-	{
-		$mResult = false;
-
-		try
-		{
-			if (isset($aArgs['AccountID']))
-			{
-				//check if accountID belongs to authorized user
-				$oUser = \Aurora\System\Api::getAuthenticatedUser();
-				$oAccount = \Aurora\System\Api::GetModule('Mail')->GetAccount($aArgs['AccountID']);
-				if ($oAccount instanceof \Aurora\Modules\Mail\Classes\Account
-					&& $oUser
-					&& $oAccount->IdUser === $oUser->EntityId)
-				{
-					$aResult = $this->getAutoresponder($oAccount->Email);
-
-					if (!empty($aResult) && $aResult['Status'])
-					{
-						$mResult = [
-							'Enable'	=> $aResult['Enable'],
-							'Subject'	=> $aResult['Subject'],
-							'Message'	=> $aResult['Message']
-						];
-					}
-					else if (!empty($aResult) && isset($aResult['Error']))
-					{
-						$mSubscriptionResult = [
-							'Error' => [
-								'message' => $aResult['Error']
-							]
-						];
-					}
-					else
-					{
-						$mResult = [
-							'Enable' => false
-						];
-					}
-				}
-			}
-		}
-		catch(\Exception $oException)
-		{}
-
-		return true; // breaking subscriptions to prevent update in parent module
-	}
-
-	public function onBeforeUpdateAutoresponder($aArgs, &$mResult, &$mSubscriptionResult)
-	{
-		$mResult = false;
-
-		try
-		{
-			$oCpanel = $this->getCpanel();
-			if (isset($aArgs['AccountID'])
-				&& isset($aArgs['Enable'])
-				&& isset($aArgs['Subject'])
-				&& !empty(trim($aArgs['Subject']))
-				&& isset($aArgs['Message'])
-				&& !empty(trim($aArgs['Message']))
-				&& $oCpanel)
-			{
-				$sSubject = trim($aArgs['Subject']);
-				$sMessage = trim($aArgs['Message']);
-				//check if accountID belongs to authorized user
-				$oUser = \Aurora\System\Api::getAuthenticatedUser();
-				$oAccount = \Aurora\System\Api::GetModule('Mail')->GetAccount($aArgs['AccountID']);
-				if ($oAccount instanceof \Aurora\Modules\Mail\Classes\Account
-					&& $oUser
-					&& $oAccount->IdUser === $oUser->EntityId)
-				{
-					$sDomain = \MailSo\Base\Utils::GetDomainFromEmail($oAccount->Email);
-					$aResult = $this->updateAutoresponder($sDomain, $oAccount->Email, $sSubject, $sMessage, $aArgs['Enable']);
-					if ($aResult['Status'])
+					$bSameForwarderExists = $bForwarderExists && $sOldToEmail === $sToEmail;
+					if ($bSameForwarderExists)
 					{
 						$mResult = true;
 					}
-					elseif (isset($aResult['Error']))
+					else if ($this->deleteForwarder($sFromEmail, $sOldToEmail))
 					{
-						$mSubscriptionResult = [
-							'Error' => [
-								'message' => $aResult['Error']
-							]
-						];
+						$mResult = $this->createForwarder($sFromDomain, $sFromEmail, $sToEmail);
 					}
 				}
-			}
-		}
-		catch(\Exception $oException)
-		{}
-
-		return true; // breaking subscriptions to prevent update in parent module
-	}
-
-	public function onBeforeGetFilters($aArgs, &$mResult, &$mSubscriptionResult)
-	{
-		$mResult = [];
-
-		try
-		{
-			$oCpanel = $this->getCpanel();
-			if (isset($aArgs['AccountID']) && $oCpanel)
-			{
-				//check if accountID belongs to authorized user
-				$oUser = \Aurora\System\Api::getAuthenticatedUser();
-				$oAccount = \Aurora\System\Api::GetModule('Mail')->GetAccount($aArgs['AccountID']);
-				if ($oAccount instanceof \Aurora\Modules\Mail\Classes\Account
-					&& $oUser
-					&& $oAccount->IdUser === $oUser->EntityId)
+				else
 				{
-					$aResult = $this->getFiltersList($oAccount);
-					if ($aResult['Status'])
-					{
-						$mResult = $aResult['Filters'];
-					}
-					elseif (isset($aResult['Error']))
-					{
-						$mSubscriptionResult = [
-							'Error' => [
-								'message' => $aResult['Error']
-							]
-						];
-					}
+					$mResult = $this->createForwarder($sFromDomain, $sFromEmail, $sToEmail);
+				}
+			}
+			else
+			{
+				if ($bForwarderExists)
+				{
+					$mResult = $this->deleteForwarder($sFromEmail, $sOldToEmail);
+				}
+				else
+				{
+					$mResult = true;
 				}
 			}
 		}
-		catch(\Exception $oException)
-		{}
 
 		return true; // breaking subscriptions to prevent update in parent module
 	}
 
-	public function onBeforeUpdateFilters($aArgs, &$mResult, &$mSubscriptionResult)
+	/**
+	 * Obtains forward data for specified account.
+	 * @param array $aArgs
+	 * @param mixed $mResult
+	 * @return boolean
+	 */
+	public function onBeforeGetForward($aArgs, &$mResult)
 	{
 		$mResult = false;
 
-		try
+		if (isset($aArgs['AccountID']))
 		{
-			$oCpanel = $this->getCpanel();
-			if (isset($aArgs['AccountID'])
-				&& isset($aArgs['Filters'])
-				&& is_array($aArgs['Filters'])
-				&& !empty($aArgs['Filters'])
-				&& $oCpanel)
+			$oAuthenticatedUser = \Aurora\System\Api::getAuthenticatedUser();
+			$oAccount = \Aurora\System\Api::GetModule('Mail')->GetAccount($aArgs['AccountID']);
+			if ($oAuthenticatedUser instanceof \Aurora\Modules\Core\Classes\User
+				&& $oAccount instanceof \Aurora\Modules\Mail\Classes\Account
+				// check if account belongs to authenticated user
+				&& $oAccount->IdUser === $oAuthenticatedUser->EntityId)
 			{
-				//check if accountID belongs to authorized user
-				$oUser = \Aurora\System\Api::getAuthenticatedUser();
-				$oAccount = \Aurora\System\Api::GetModule('Mail')->GetAccount($aArgs['AccountID']);
-				if ($oAccount instanceof \Aurora\Modules\Mail\Classes\Account
-					&& $oUser
-					&& $oAccount->IdUser === $oUser->EntityId)
+				$sDomain = \MailSo\Base\Utils::GetDomainFromEmail($oAccount->Email);
+				$aResult = $this->getForwarder($sDomain, $oAccount->Email);
+
+				if (is_array($aResult))
 				{
-					$aResult = $this->removeSupportedFilters($oAccount);
-					if ($aResult['Status'])
+					if (isset($aResult['Email']))
 					{
-						foreach ($aArgs['Filters'] as $aWebmailFilter)
-						{
-							$aFilterProperty = self::convertWebmailFIlterToCPanelFIlter($aWebmailFilter, $oAccount);
-							//create filter
-							$sCreationResponse = $this->executeCpanelAction($oCpanel, 'Email', 'store_filter',
-								$aFilterProperty
-							);
-							$aCreationResult = self::parseResponse($sCreationResponse);
-							if (isset($aCreationResult['Error']))
-							{
-								$mSubscriptionResult = [
-									'Error' => [
-										'message'	=> $aCreationResult['Error']
-									]
-								];
-							}
-							//disable filter if needed
-							if (!$aWebmailFilter['Enable'])
-							{
-								$sDisableResponse = $this->executeCpanelAction($oCpanel, 'Email', 'disable_filter',
-									[
-										'account'	=> $oAccount->Email,
-										'filtername'	=> $aFilterProperty['filtername']
-									]
-								);
-								$aDisableResult = self::parseResponse($sDisableResponse);
-								if (isset($aDisableResult['Error']))
-								{
-									$mSubscriptionResult = [
-										'Error' => [
-											'message'	=> $aDisableResult['Error']
-										]
-									];
-								}
-							}
-							$mResult = true;
-						}
+						$mResult = [
+							'Enable' => true,
+							'Email' => $aResult['Email']
+						];
 					}
-					elseif (isset($aResult['Error']))
+					else
 					{
-						$mSubscriptionResult = [
-							'Error' => [
-								'message' => $aResult['Error']
-							]
+						$mResult = [
+							'Enable' => false,
+							'Email' => ''
 						];
 					}
 				}
 			}
 		}
-		catch(\Exception $oException)
-		{}
+
+		return true; // breaking subscriptions to prevent update in parent module
+	}
+
+	/**
+	 * Obtains autoresponder for specified account.
+	 * @param array $aArgs
+	 * @param mixed $mResult
+	 * @return boolean
+	 */
+	public function onBeforeGetAutoresponder($aArgs, &$mResult)
+	{
+		$mResult = false;
+
+		if (isset($aArgs['AccountID']))
+		{
+			$oAuthenticatedUser = \Aurora\System\Api::getAuthenticatedUser();
+			$oAccount = \Aurora\System\Api::GetModule('Mail')->GetAccount($aArgs['AccountID']);
+			if ($oAuthenticatedUser instanceof \Aurora\Modules\Core\Classes\User
+				&& $oAccount instanceof \Aurora\Modules\Mail\Classes\Account
+				// check if account belongs to authenticated user
+				&& $oAccount->IdUser === $oAuthenticatedUser->EntityId)
+			{
+				$mAutoresponder = $this->getAutoresponder($oAccount->Email);
+
+				if (is_array($mAutoresponder) && isset($mAutoresponder['Enable']))
+				{
+					$mResult = [
+						'Enable' => $mAutoresponder['Enable'],
+						'Subject' => $mAutoresponder['Subject'],
+						'Message' => $mAutoresponder['Message']
+					];
+				}
+			}
+		}
+
+		return true; // breaking subscriptions to prevent update in parent module
+	}
+
+	/**
+	 * Updates autoresponder data.
+	 * @param array $aArgs
+	 * @param mixed $mResult
+	 * @return boolean
+	 * @throws \Aurora\System\Exceptions\ApiException
+	 */
+	public function onBeforeUpdateAutoresponder($aArgs, &$mResult)
+	{
+		if (!isset($aArgs['AccountID']) || !isset($aArgs['Enable']) || !isset($aArgs['Subject']) || !isset($aArgs['Message'])
+				|| $aArgs['Enable'] && (empty(trim($aArgs['Subject'])) || empty(trim($aArgs['Message']))))
+		{
+			throw new \Aurora\System\Exceptions\ApiException(\Aurora\System\Notifications::InvalidInputParameter);
+		}
+
+		$mResult = false;
+
+		$oAuthenticatedUser = \Aurora\System\Api::getAuthenticatedUser();
+		$oAccount = \Aurora\System\Api::GetModule('Mail')->GetAccount($aArgs['AccountID']);
+		if ($oAuthenticatedUser instanceof \Aurora\Modules\Core\Classes\User
+			&& $oAccount instanceof \Aurora\Modules\Mail\Classes\Account
+			// check if account belongs to authenticated user
+			&& $oAccount->IdUser === $oAuthenticatedUser->EntityId)
+		{
+			$sSubject = trim($aArgs['Subject']);
+			$sMessage = trim($aArgs['Message']);
+			$sDomain = \MailSo\Base\Utils::GetDomainFromEmail($oAccount->Email);
+			$mResult = $this->updateAutoresponder($sDomain, $oAccount->Email, $sSubject, $sMessage, $aArgs['Enable']);
+		}
+
+		return true; // breaking subscriptions to prevent update in parent module
+	}
+
+	/**
+	 * Obtains filters for specified account.
+	 * @param array $aArgs
+	 * @param mixed $mResult
+	 * @return boolean
+	 */
+	public function onBeforeGetFilters($aArgs, &$mResult)
+	{
+		$mResult = [];
+
+		$oCpanel = $this->getCpanel();
+		$oAuthenticatedUser = \Aurora\System\Api::getAuthenticatedUser();
+		$oAccount = \Aurora\System\Api::GetModule('Mail')->GetAccount($aArgs['AccountID']);
+		if (isset($aArgs['AccountID']) && $oCpanel
+			&& $oAuthenticatedUser instanceof \Aurora\Modules\Core\Classes\User
+			&& $oAccount instanceof \Aurora\Modules\Mail\Classes\Account
+			// check if account belongs to authenticated user
+			&& $oAccount->IdUser === $oAuthenticatedUser->EntityId)
+		{
+			$mResult = $this->getFilters($oAccount);
+		}
+
+		return true; // breaking subscriptions to prevent update in parent module
+	}
+
+	/**
+	 * Updates filters.
+	 * @param array $aArgs
+	 * @param mixed $mResult
+	 * @return boolean
+	 * @throws \Aurora\System\Exceptions\ApiException
+	 */
+	public function onBeforeUpdateFilters($aArgs, &$mResult)
+	{
+		if (!isset($aArgs['AccountID']) || !isset($aArgs['Filters']) || !is_array($aArgs['Filters']))
+		{
+			throw new \Aurora\System\Exceptions\ApiException(\Aurora\System\Notifications::InvalidInputParameter);
+		}
+
+		$mResult = false;
+
+		$oCpanel = $this->getCpanel();
+		$oAuthenticatedUser = \Aurora\System\Api::getAuthenticatedUser();
+		$oAccount = \Aurora\System\Api::GetModule('Mail')->GetAccount($aArgs['AccountID']);
+		if ($oCpanel
+			&& $oAuthenticatedUser instanceof \Aurora\Modules\Core\Classes\User
+			&& $oAccount instanceof \Aurora\Modules\Mail\Classes\Account
+			// check if account belongs to authenticated user
+			&& $oAccount->IdUser === $oAuthenticatedUser->EntityId)
+		{
+			if ($this->removeSupportedFilters($oAccount))
+			{
+				if (count($aArgs['Filters']) === 0)
+				{
+					$mResult = true;
+				}
+				else
+				{
+					foreach ($aArgs['Filters'] as $aWebmailFilter)
+					{
+						$aFilterProperty = self::convertWebmailFIlterToCPanelFIlter($aWebmailFilter, $oAccount);
+						//create filter
+						$sCpanelResponse = $this->executeCpanelAction($oCpanel, 'Email', 'store_filter',
+							$aFilterProperty
+						);
+						$aCreationResult = self::parseResponse($sCpanelResponse); // throws exception in case if error has occured
+						//disable filter if needed
+						if (!$aCreationResult['Status'])
+						{
+							$mResult = false;
+							break;
+						}
+						if (!$aWebmailFilter['Enable'])
+						{
+							$sCpanelResponse = $this->executeCpanelAction($oCpanel, 'Email', 'disable_filter',
+								[
+									'account' => $oAccount->Email,
+									'filtername' => $aFilterProperty['filtername']
+								]
+							);
+							self::parseResponse($sCpanelResponse); // throws exception in case if error has occured
+						}
+						$mResult = true;
+					}
+				}
+			}
+		}
 
 		return true; // breaking subscriptions to prevent update in parent module
 	}
@@ -739,16 +717,12 @@ class Module extends \Aurora\System\Module\AbstractModule
 		return $bResult;
 	}
 
-	protected function getMailModule()
-	{
-		if (!$this->oMailModule)
-		{
-			$this->oMailModule = \Aurora\System\Api::GetModule('Mail');
-		}
-
-		return $this->oMailModule;
-	}
-
+	/**
+	 * Obtains forwarder from cPanel.
+	 * @param string $sDomain
+	 * @param string $sEmail
+	 * @return array
+	 */
 	protected function getForwarder($sDomain, $sEmail)
 	{
 		$aResult = [];
@@ -756,41 +730,22 @@ class Module extends \Aurora\System\Module\AbstractModule
 		$oCpanel = $this->getCpanel();
 		if ($oCpanel && $sDomain && $sEmail)
 		{
-			$sResult = $this->executeCpanelAction($oCpanel, 'Email', 'list_forwarders',
+			$sCpanelResponse = $this->executeCpanelAction($oCpanel, 'Email', 'list_forwarders',
 				[
-					'domain'	=> $sDomain,
-					'regex'	=> $sEmail
+					'domain' => $sDomain,
+					'regex' => $sEmail
 				]
 			);
-			$oResult = \json_decode($sResult);
+			$aParseResult = self::parseResponse($sCpanelResponse); // throws exception in case if error has occured
 
-			if ($oResult
-				&& isset($oResult->result)
-				&& isset($oResult->result->data)
-				&& is_array($oResult->result->data)
-				&& isset($oResult->result->data[0])
+			if ($aParseResult
+				&& isset($aParseResult['Data'])
+				&& is_array($aParseResult['Data'])
+				&& isset($aParseResult['Data'][0])
 			)
 			{
 				$aResult = [
-					'Email' => $oResult->result->data[0]->forward
-				];
-			}
-			else if ($oResult && isset($oResult->error))
-			{
-				$aResult = [
-					'Error' => [
-						'message' => $oResult->error
-					]
-				];
-			}
-			else if ($oResult && isset($oResult->result)
-				&& isset($oResult->result->errors) && !empty($oResult->result->errors)
-				&& isset($oResult->result->errors[0]))
-			{
-				$aResult = [
-					'Error' => [
-						'message' => $oResult->result->errors[0]
-					]
+					'Email' => $aParseResult['Data'][0]->forward
 				];
 			}
 		}
@@ -798,74 +753,112 @@ class Module extends \Aurora\System\Module\AbstractModule
 		return $aResult;
 	}
 
+	/**
+	 * Deletes forwarder from cPanel.
+	 * @param string $sAddress
+	 * @param string $sForwarder
+	 * @param int $iTenantId
+	 * @return boolean
+	 */
 	protected function deleteForwarder($sAddress, $sForwarder, $iTenantId = 0)
 	{
-		$aResult = [
-			'Status' => false
-		];
-
 		$oCpanel = $this->getCpanel($iTenantId);
+		
 		if ($oCpanel && $sAddress && $sForwarder)
 		{
-			$sResponse = $this->executeCpanelAction($oCpanel, 'Email', 'delete_forwarder',
+			$sCpanelResponse = $this->executeCpanelAction($oCpanel, 'Email', 'delete_forwarder',
 				[
-					'address'	=> $sAddress,
-					'forwarder'   => $sForwarder
+					'address' => $sAddress,
+					'forwarder' => $sForwarder
 				]
 			);
-			$aResult = self::parseResponse($sResponse);
+			self::parseResponse($sCpanelResponse); // throws exception in case if error has occured
+			return true;
 		}
 
-		return $aResult;
+		return false;
 	}
 
+	/**
+	 * Creates forwarder on cPanel.
+	 * @param string $sDomain
+	 * @param string $sEmail
+	 * @param string $sForwardEmail
+	 * @param int $iTenantId
+	 * @return boolean
+	 */
 	protected function createForwarder($sDomain, $sEmail, $sForwardEmail, $iTenantId = 0)
 	{
-		$aResult = [
-			'Status' => false
-		];
-
 		$oCpanel = $this->getCpanel($iTenantId);
+		
 		if ($oCpanel && $sDomain && $sEmail && $sForwardEmail)
 		{
-			$sResponse = $this->executeCpanelAction($oCpanel, 'Email', 'add_forwarder',
+			$sCpanelResponse = $this->executeCpanelAction($oCpanel, 'Email', 'add_forwarder',
 				[
-					'domain'	=> $sDomain,
-					'email'	=> $sEmail,
-					'fwdopt'	=> 'fwd',
-					'fwdemail'   => $sForwardEmail
+					'domain' => $sDomain,
+					'email' => $sEmail,
+					'fwdopt' => 'fwd',
+					'fwdemail' => $sForwardEmail
 				]
 			);
-			$aResult = self::parseResponse($sResponse);
+			self::parseResponse($sCpanelResponse); // throws exception in case if error has occured
+			return true;
 		}
 
-		return $aResult;
+		return false;
+	}
+	
+	/**
+	 * Obtains domain forwarders.
+	 * @param string $sEmail
+	 * @param string $sDomain
+	 * @param int $iTenantId
+	 * @return array
+	 */
+	protected function getDomainForwarders($sEmail, $sDomain, $iTenantId = 0)
+	{
+		$oCpanel = $this->getCpanel($iTenantId);
+		if ($oCpanel && $sDomain && $sEmail)
+		{
+			$sCpanelResponse = $this->executeCpanelAction($oCpanel, 'Email', 'list_forwarders',
+				[
+					'domain' => $sDomain
+				]
+			);
+			$aResult = self::parseResponse($sCpanelResponse); // throws exception in case if error has occured
+			if (is_array($aResult) && isset($aResult['Data']))
+			{
+				return $aResult['Data'];
+			}
+		}
+		
+		return [];
 	}
 
+	/**
+	 * Obtains autoresponder on cPanel.
+	 * @param string $sEmail
+	 * @return array|boolean
+	 */
 	protected function getAutoresponder($sEmail)
 	{
-		$aResult = [
-			'Status' => false
-		];
+		$mResult = false;
 
 		$oCpanel = $this->getCpanel();
 		if ($oCpanel && $sEmail)
 		{
-			$sResult = $this->executeCpanelAction($oCpanel, 'Email', 'get_auto_responder',
+			$sCpanelResponse = $this->executeCpanelAction($oCpanel, 'Email', 'get_auto_responder',
 				[
 					'email' => $sEmail
 				]
 			);
-			$oResult = \json_decode($sResult);
-
-			if ($oResult
-				&& isset($oResult->result)
-				&& isset($oResult->result->data)
-				&& is_object($oResult->result->data)
-				&& isset($oResult->result->data->subject)
+			$aParseResult = self::parseResponse($sCpanelResponse); // throws exception in case if error has occured
+			if ($aParseResult
+				&& isset($aParseResult['Data'])
+				&& isset($aParseResult['Data']->subject)
 			)
 			{
-				if ($oResult->result->data->stop !== null && $oResult->result->data->stop < time())
+				if ($aParseResult['Data']->stop !== null && $aParseResult['Data']->stop < time())
 				{
 					$bEnable = false;
 				}
@@ -873,38 +866,26 @@ class Module extends \Aurora\System\Module\AbstractModule
 				{
 					$bEnable = true;
 				}
-				$aResult = [
-					'Status'	=> true,
-					'Subject'	=> $oResult->result->data->subject,
-					'Message'	=> $oResult->result->data->body,
-					'Enable'	=> $bEnable
-				];
-			}
-			else if ($oResult && isset($oResult->error))
-			{
-				$aResult = [
-					'Status'	=> false,
-					'Error'	=> [
-						'message'	=> $oResult->error
-					]
-				];
-			}
-			else if ($oResult && isset($oResult->result)
-				&& isset($oResult->result->errors) && !empty($oResult->result->errors)
-				&& isset($oResult->result->errors[0]))
-			{
-				$aResult = [
-					'Status'	=> false,
-					'Error'	=> [
-						'message'	=> $oResult->result->errors[0]
-					]
+				$mResult = [
+					'Subject' => $aParseResult['Data']->subject,
+					'Message' => $aParseResult['Data']->body,
+					'Enable' => $bEnable
 				];
 			}
 		}
 
-		return $aResult;
+		return $mResult;
 	}
 
+	/**
+	 * Updates autoresponder on cPanel.
+	 * @param string $sDomain
+	 * @param string $sEmail
+	 * @param string $sSubject
+	 * @param string $sMessage
+	 * @param boolean $bEnable
+	 * @return array
+	 */
 	protected function updateAutoresponder($sDomain, $sEmail, $sSubject, $sMessage, $bEnable)
 	{
 		$aResult = [
@@ -921,133 +902,132 @@ class Module extends \Aurora\System\Module\AbstractModule
 				$iStopTime = time();
 				$iStartTime = $iStopTime - 1;
 			}
-			$sResponse = $this->executeCpanelAction($oCpanel, 'Email', 'add_auto_responder',
+			$sCpanelResponse = $this->executeCpanelAction($oCpanel, 'Email', 'add_auto_responder',
 				[
-					'email'	=> $sEmail,
-					'from'		=> '',
-					'subject'	=> $sSubject,
-					'body'	=> $sMessage,
-					'domain'	=> $sDomain,
-					'is_html'	=> 0,
-					'interval'	=> 0,
-					'start'		=> $iStartTime,
-					'stop'		=> $iStopTime
+					'email' => $sEmail,
+					'from' => '',
+					'subject' => $sSubject,
+					'body' => $sMessage,
+					'domain' => $sDomain,
+					'is_html' => 0,
+					'interval' => 0,
+					'start' => $iStartTime,
+					'stop' => $iStopTime
 				]
 			);
-			$aResult = self::parseResponse($sResponse);
+			$aResult = self::parseResponse($sCpanelResponse); // throws exception in case if error has occured
 		}
 
 		return $aResult;
 	}
 
-	protected function getFiltersList($oAccount)
+	/**
+	 * Deletes autoresponder from cPanel.
+	 * @param string $sEmail
+	 */
+	protected function deleteAutoresponder($sEmail)
 	{
-		$aResult = [
-			'Status' => false
-		];
+		$oCpanel = $this->getCpanel();
+		if ($oCpanel && $sEmail)
+		{
+			$sCpanelResponse = $this->executeCpanelAction($oCpanel, 'Email', 'delete_auto_responder',
+				[
+					'email'	=> $sEmail,
+				]
+			);
+			self::parseResponse($sCpanelResponse); // throws exception in case if error has occured
+		}
+	}
+
+	/**
+	 * Obtains filters from cPanel.
+	 * @param object $oAccount
+	 * @return array
+	 */
+	protected function getFilters($oAccount)
+	{
+		$aFilters = [];
 
 		$oCpanel = $this->getCpanel();
 		if ($oCpanel && $oAccount)
 		{
-			$sResult = $this->executeCpanelAction($oCpanel, 'Email', 'list_filters',
+			$sCpanelResponse = $this->executeCpanelAction($oCpanel, 'Email', 'list_filters',
 				[
 					'account' => $oAccount->Email
 				]
 			);
-			$oResult = \json_decode($sResult);
-
-			if ($oResult
-				&& isset($oResult->result)
-				&& isset($oResult->result->data)
-				&& is_array($oResult->result->data)
-			)
+			$aParseResult = self::parseResponse($sCpanelResponse); // throws exception in case if error has occured
+			if ($aParseResult && isset($aParseResult['Data']))
 			{
-				$aResult = [
-					'Status'	=> true,
-					'Filters'	=> self::convertCPanelFIltersToWebmailFIlters($oResult->result->data, $oAccount)
-				];
-			}
-			else if ($oResult && isset($oResult->error))
-			{
-				$aResult = [
-					'Status'	=> false,
-					'Error'	=> [
-						'message'	=> $oResult->error
-					]
-				];
-			}
-			else if ($oResult && isset($oResult->result)
-				&& isset($oResult->result->errors) && !empty($oResult->result->errors)
-				&& isset($oResult->result->errors[0]))
-			{
-				$aResult = [
-					'Status'	=> false,
-					'Error'	=> [
-						'message'	=> $oResult->result->errors[0]
-					]
-				];
+				$aFilters = self::convertCPanelFIltersToWebmailFIlters($aParseResult['Data'], $oAccount);
 			}
 		}
 
-		return $aResult;
+		return $aFilters;
 	}
 
+	/**
+	 * Removes filters supported by the system from cPanel.
+	 * @param object $oAccount
+	 * @return boolean
+	 */
 	protected function removeSupportedFilters($oAccount)
 	{
-		$aResult = [
-			'Status' => false
-		];
+		$bResult = false;
 
 		if ($oAccount)
 		{
-			$aResult = $this->getFiltersList($oAccount);
-			if ($aResult['Status'])
+			$aFilters = $this->getFilters($oAccount);
+			if (is_array($aFilters))
 			{
-				$aSuportedFilterNames = array_map(function ($aFilter) {
-					return $aFilter['Filtername'];
-				}, $aResult['Filters']);
-				$oCpanel = $this->getCpanel();
-				if ($oCpanel)
+				if (count($aFilters) === 0)
 				{
-					$bDelResult = true;
-					foreach ($aSuportedFilterNames as $sSuportedFilterName)
+					$bResult = true;
+				}
+				else
+				{
+					$aSuportedFilterNames = array_map(function ($aFilter) {
+						return $aFilter['Filtername'];
+					}, $aFilters);
+					
+					$oCpanel = $this->getCpanel();
+					if ($oCpanel)
 					{
-						$sResponse = $this->executeCpanelAction($oCpanel, 'Email', 'delete_filter',
-							[
-								'account'		=> $oAccount->Email,
-								'filtername'		=> $sSuportedFilterName
-							]
-						);
-						$aDelResult = self::parseResponse($sResponse);
-						if (!$aDelResult['Status'])
+						$bDelResult = true;
+						foreach ($aSuportedFilterNames as $sSuportedFilterName)
 						{
-							$bDelResult = false;
-							if (isset($aDelResult['Error']))
+							$sCpanelResponse = $this->executeCpanelAction($oCpanel, 'Email', 'delete_filter',
+								[
+									'account' => $oAccount->Email,
+									'filtername' => $sSuportedFilterName
+								]
+							);
+							$aDelResult = self::parseResponse($sCpanelResponse); // throws exception in case if error has occured
+							if (!$aDelResult['Status'])
 							{
-								$aResult = [
-									'Status'	=> false,
-									'Error'	=> $aDelResult['Error']
-								];
+								$bDelResult = false;
+								break;
 							}
-							break;
 						}
-					}
-					if ($bDelResult)
-					{
-						$aResult = [
-							'Status' => true
-						];
+						$bResult = $bDelResult;
 					}
 				}
-				
 			}
 		}
 
-		return $aResult;
+		return $bResult;
 	}
-	public static function getImapNamespace($oAccount)
+	
+	/**
+	 * Obtains namespace for mail account from IMAP.
+	 * @staticvar object $oNamespace
+	 * @param object $oAccount
+	 * @return object
+	 */
+	protected static function getImapNamespace($oAccount)
 	{
 		static $oNamespace = null;
+		
 		if ($oNamespace === null)
 		{
 			$oNamespace = \Aurora\System\Api::GetModule('Mail')->getMailManager()->_getImapClient($oAccount)->GetNamespace();
@@ -1056,7 +1036,14 @@ class Module extends \Aurora\System\Module\AbstractModule
 		return $oNamespace;
 	}
 
-	public static function parseResponse($sResponse, $bAllowException = true)
+	/**
+	 * Parses response from cPanel.
+	 * @param string $sResponse
+	 * @param boolean $bAllowException
+	 * @return array
+	 * @throws \Exception
+	 */
+	protected static function parseResponse($sResponse, $bAllowException = true)
 	{
 		$aResult = [
 			'Status' => false
@@ -1071,7 +1058,8 @@ class Module extends \Aurora\System\Module\AbstractModule
 		)
 		{
 			$aResult = [
-				'Status' => true
+				'Status' => true,
+				'Data' => $oResult->result->data
 			];
 		}
 		else if ($oResult && isset($oResult->error))
@@ -1090,15 +1078,28 @@ class Module extends \Aurora\System\Module\AbstractModule
 				'Error' => $oResult->result->errors[0]
 			];
 		}
+		else
+		{
+			$aResult = [
+				'Status' => false,
+				'Error' => $sResponse
+			];
+		}
 
 		if ($bAllowException && $aResult['Status'] === false)
 		{
-			throw new \Exception($aResult['Error']);
+			throw new \Exception(trim($aResult['Error'], ' ()'));
 		}
 		
 		return $aResult;
 	}
 
+	/**
+	 * Converts cPanel filters to webmail filters.
+	 * @param array $aCPanelFilters
+	 * @param object $oAccount
+	 * @return array
+	 */
 	public static function convertCPanelFIltersToWebmailFIlters($aCPanelFilters, $oAccount)
 	{
 		$aResult = [];
@@ -1152,7 +1153,7 @@ class Module extends \Aurora\System\Module\AbstractModule
 
 			$aFolderNameParts = \explode('/', $oCPanelFilter->actions[0]->dest);
 			$sFolderFullName = '';
-			if (\count($aFolderNameParts)  > 1 && $aFolderNameParts[\count($aFolderNameParts) - 1] !== $sNamespace)
+			if (\count($aFolderNameParts) > 1 && $aFolderNameParts[\count($aFolderNameParts) - 1] !== $sNamespace)
 			{
 				$sFolderFullName = $sNamespace . $aFolderNameParts[\count($aFolderNameParts) - 1];
 			}
@@ -1162,13 +1163,13 @@ class Module extends \Aurora\System\Module\AbstractModule
 			)
 			{
 				$aResult[] = [
-					'Action'			=> $iAction,
-					'Condition'			=> $iCondition,
-					'Enable'			=> (bool) $oCPanelFilter->enabled,
-					'Field'				=> $iField,
-					'Filter'			=> $oCPanelFilter->rules[0]->val,
-					'FolderFullName'	=> $iAction === \Aurora\Modules\Mail\Enums\FilterAction::DeleteFromServerImmediately ? '' : $sFolderFullName,
-					'Filtername'		=> $oCPanelFilter->filtername
+					'Action' => $iAction,
+					'Condition' => $iCondition,
+					'Enable' => (bool) $oCPanelFilter->enabled,
+					'Field' => $iField,
+					'Filter' => $oCPanelFilter->rules[0]->val,
+					'FolderFullName' => $iAction === \Aurora\Modules\Mail\Enums\FilterAction::DeleteFromServerImmediately ? '' : $sFolderFullName,
+					'Filtername' => $oCPanelFilter->filtername
 				];
 			}
 		}
@@ -1176,6 +1177,12 @@ class Module extends \Aurora\System\Module\AbstractModule
 		return $aResult;
 	}
 
+	/**
+	 * Converts webmail filters to cPanel filters.
+	 * @param array $aWebmailFilter
+	 * @param object $oAccount
+	 * @return array
+	 */
 	public static function convertWebmailFIlterToCPanelFIlter($aWebmailFilter, $oAccount)
 	{
 		$sAction = '';
@@ -1221,14 +1228,14 @@ class Module extends \Aurora\System\Module\AbstractModule
 		}
 
 		return [
-			'filtername'		=> \uniqid(),
-			'account'		=> $oAccount->Email,
-			'action1'		=> $sAction,
-			'dest1'			=> $sDest,
-			'part1'			=> $sPart,
-			'match1'		=> $sMatch,
-			'val1'			=> $aWebmailFilter['Filter'],
-			'opt1'			=> 'or',
+			'filtername' => \uniqid(),
+			'account' => $oAccount->Email,
+			'action1' => $sAction,
+			'dest1' => $sDest,
+			'part1' => $sPart,
+			'match1' => $sMatch,
+			'val1' => $aWebmailFilter['Filter'],
+			'opt1' => 'or',
 		];
 	}
 	
@@ -1316,51 +1323,6 @@ class Module extends \Aurora\System\Module\AbstractModule
 			return $oSettings->Save();
 		}
 	}
-	
-	public function onUpdateQuota($aArgs, &$mResult)
-	{
-		$mResult = $this->setMailQuota($aArgs['TenantId'], $aArgs['Email'], $aArgs['QuotaMb']);
-	}
-	
-	protected function setMailQuota($iTenantId, $sEmail, $iQuota)
-	{
-		$oCpanel = $this->getCpanel($iTenantId);
-		$sLogin = \MailSo\Base\Utils::GetAccountNameFromEmail($sEmail);
-		$sDomain = \MailSo\Base\Utils::GetDomainFromEmail($sEmail);
-		$sResponse = $this->executeCpanelAction($oCpanel, 'Email', 'edit_pop_quota',
-			[
-				'email' => $sLogin,
-				'domain' => $sDomain,
-				'quota' => $iQuota
-			]
-		);
-		$aResult = self::parseResponse($sResponse);
-		return $aResult;
-	}
-	
-	protected function getDomainForwarders($sEmail, $sDomain, $iTenantId = 0)
-	{
-		$oCpanel = $this->getCpanel($iTenantId);
-		if ($oCpanel && $sDomain && $sEmail)
-		{
-			$sResult = $this->executeCpanelAction($oCpanel, 'Email', 'list_forwarders',
-				[
-					'domain' => $sDomain
-				]
-			);
-			$oResult = \json_decode($sResult);
-			if ($oResult
-				&& isset($oResult->result)
-				&& isset($oResult->result->data)
-				&& is_array($oResult->result->data)
-			)
-			{
-				return $oResult->result->data;
-			}
-		}
-		
-		return [];
-	}
 
 	/**
 	 * Obtains all aliases for specified user.
@@ -1387,7 +1349,7 @@ class Module extends \Aurora\System\Module\AbstractModule
 		if ($oAccount)
 		{
 			$sEmail = $oAccount->Email;
-			$sDomain = preg_match('/.+@(.+)$/',  $sEmail, $aMatches) && $aMatches[1] ? $aMatches[1] : '';
+			$sDomain = \MailSo\Base\Utils::GetDomainFromEmail($sEmail);
 			
 			$aForwarders = $this->getDomainForwarders($sEmail, $sDomain, $oUser->IdTenant);
 			$aAliases = [];
@@ -1438,7 +1400,7 @@ class Module extends \Aurora\System\Module\AbstractModule
 		if ($oAccount)
 		{
 			$sEmail = $oAccount->Email;
-			$sDomain = preg_match('/.+@(.+)$/',  $sEmail, $aMatches) && $aMatches[1] ? $aMatches[1] : '';
+			$sDomain = \MailSo\Base\Utils::GetDomainFromEmail($oAccount->Email);
 			$aArgs = [
 				'TenantId' => $oUser->IdTenant,
 				'Forwarders' => $this->getDomainForwarders($sEmail, $sDomain, $oUser->IdTenant),
@@ -1462,7 +1424,7 @@ class Module extends \Aurora\System\Module\AbstractModule
 	 * @param array $Aliases Aliases emails.
 	 * @return boolean
 	 */
-	public function DeleteAlias($UserId, $Aliases)
+	public function DeleteAliases($UserId, $Aliases)
 	{
 		$oAuthenticatedUser = \Aurora\System\Api::getAuthenticatedUser();
 		
@@ -1479,23 +1441,20 @@ class Module extends \Aurora\System\Module\AbstractModule
 			\Aurora\System\Api::checkUserRoleIsAtLeast(\Aurora\System\Enums\UserRole::SuperAdmin);
 		}
 		
-		$mResult = false;
+		$bResult = false;
 		$oMailDecorator = \Aurora\System\Api::GetModuleDecorator('Mail');
 		$oAccount = $bUserFound && $oMailDecorator ? $oMailDecorator->GetAccountByEmail($oUser->PublicId, $oUser->EntityId) : null;
 		if ($oAccount)
 		{
 			foreach ($Aliases as $sAlias)
 			{
-				preg_match('/(.+)@(.+)$/',  $sAlias, $aMatches);
+				preg_match('/(.+)@(.+)$/', $sAlias, $aMatches);
 				$AliasName = isset($aMatches[1]) ? $aMatches[1] : '';
 				$AliasDomain = isset($aMatches[2]) ? $aMatches[2] : '';
-				if ($this->deleteForwarder($AliasName . '@' . $AliasDomain, $oAccount->Email, $oUser->IdTenant))
-				{
-					$mResult = true;
-				}
+				$bResult = $this->deleteForwarder($AliasName . '@' . $AliasDomain, $oAccount->Email, $oUser->IdTenant);
 			}
 		}
 		
-		return $mResult;
+		return $bResult;
 	}
 }

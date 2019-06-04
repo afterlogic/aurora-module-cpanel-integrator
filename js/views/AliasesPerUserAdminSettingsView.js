@@ -92,7 +92,7 @@ CAliasesPerUserAdminSettingsView.prototype.deleteAliases = function ()
 		return;
 	}
 	
-	Ajax.send(Settings.ServerModuleName, 'DeleteAlias', {
+	Ajax.send(Settings.ServerModuleName, 'DeleteAliases', {
 		'UserId': this.iUserId,
 		'Aliases': this.selectedAliases()
 	}, function (oResponse) {
