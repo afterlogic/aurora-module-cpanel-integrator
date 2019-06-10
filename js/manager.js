@@ -57,6 +57,28 @@ module.exports = function (oAppData) {
 							TextUtils.i18n('%MODULENAME%/ADMIN_SETTINGS_TAB_LABEL')
 						]);
 					}
+					App.subscribeEvent('ConfirmDeleteEntity::before', function (oParams) {
+						if (Settings.AllowCreateDeleteAccountOnCpanel)
+						{
+							var sAddText = '';
+							switch (oParams.Type)
+							{
+								case 'User':
+									sAddText = TextUtils.i18n('%MODULENAME%/CONFIRM_CPANEL_ACCOUNTS_WILL_BE_DELETED_WITH_USERS_HTML_PLURAL', {}, null, oParams.Count);
+									break;
+								case 'Domain':
+									sAddText = TextUtils.i18n('%MODULENAME%/CONFIRM_CPANEL_ACCOUNTS_WILL_BE_DELETED_WITH_DOMAINS_HTML_PLURAL', {}, null, oParams.Count);
+									break;
+								case 'Tenant':
+									sAddText = TextUtils.i18n('%MODULENAME%/CONFIRM_CPANEL_ACCOUNTS_WILL_BE_DELETED_WITH_TENANTS_HTML_PLURAL', {}, null, oParams.Count);
+									break;
+							}
+							if (sAddText !== '')
+							{
+								oParams.ConfirmText += '<br /><br /><span style="color: red">' + sAddText + '</span>';
+							}
+						}
+					});
 				}
 			};
 		}

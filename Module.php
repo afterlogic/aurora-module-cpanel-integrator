@@ -1254,6 +1254,7 @@ class Module extends \Aurora\System\Module\AbstractModule
 			{
 				return [
 					'AllowAliases' => $oSettings->GetValue('AllowAliases', false),
+					'AllowCreateDeleteAccountOnCpanel' => $oSettings->GetValue('AllowCreateDeleteAccountOnCpanel', false),
 				];
 			}
 		}
@@ -1281,6 +1282,7 @@ class Module extends \Aurora\System\Module\AbstractModule
 			'CpanelUser' => $oSettings->GetValue('CpanelUser', ''),
 			'CpanelHasPassword' => $oSettings->GetValue('CpanelPassword', '') !== '',
 			'AllowAliases' => $oSettings->GetValue('AllowAliases', false),
+			'AllowCreateDeleteAccountOnCpanel' => $oSettings->GetValue('AllowCreateDeleteAccountOnCpanel', false),
 		];
 	}
 	
