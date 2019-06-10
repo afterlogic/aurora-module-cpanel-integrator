@@ -19,6 +19,8 @@ class Module extends \Aurora\System\Module\AbstractModule
 	const UAPI = '3';
 	private $oCpanel = null;
 	public $oMailModule = null;
+	
+	protected static $bAllowDeleteFromMailServerIfPossible = false;
 
 	public function init()
 	{
@@ -41,6 +43,9 @@ class Module extends \Aurora\System\Module\AbstractModule
 		$this->subscribeEvent('Mail::GetFilters::before', array($this, 'onBeforeGetFilters'));
 		$this->subscribeEvent('Mail::UpdateFilters::before', array($this, 'onBeforeUpdateFilters'));
 		$this->subscribeEvent('Mail::UpdateQuota', array($this, 'onUpdateQuota'));
+		
+		$this->subscribeEvent('AdminPanelWebclient::DeleteEntities::before', array($this, 'onBeforeDeleteEntities'));
+		$this->subscribeEvent('MailDomains::DeleteDomains::before', array($this, 'onBeforeDeleteDomains'));
 	}
 
 	/**
@@ -229,6 +234,26 @@ class Module extends \Aurora\System\Module\AbstractModule
 	}
 	
 	/**
+	 * Sets flag that allows to delete mail account on cPanel.
+	 * @param array $aArgs
+	 * @param mixed $mResult
+	 */
+	public function onBeforeDeleteEntities($aArgs, &$mResult)
+	{
+		self::$bAllowDeleteFromMailServerIfPossible = isset($aArgs['DeletionConfirmedByAdmin']) && $aArgs['DeletionConfirmedByAdmin'] === true;
+	}
+	
+	/**
+	 * Sets flag that allows to delete mail account on cPanel.
+	 * @param array $aArgs
+	 * @param mixed $mResult
+	 */
+	public function onBeforeDeleteDomains($aArgs, &$mResult)
+	{
+		self::$bAllowDeleteFromMailServerIfPossible = isset($aArgs['DeletionConfirmedByAdmin']) && $aArgs['DeletionConfirmedByAdmin'] === true;
+	}
+	
+	/**
 	 * Deletes cPanel account, its aliases, forward, autoresponder and filters.
 	 * @param array $aArgs
 	 * @param mixed $mResult
@@ -258,14 +283,18 @@ class Module extends \Aurora\System\Module\AbstractModule
 				
 				$this->deleteAutoresponder($oAccount->Email);
 				
-				$oCpanel = $this->getCpanel($oUser->IdTenant);
-				$sCpanelResponse = $this->executeCpanelAction($oCpanel, 'Email', 'delete_pop',
-					[
-						'email' => $oAccount->Email,
-						'domain' => $sDomain,
-					]
-				);
-				self::parseResponse($sCpanelResponse); // throws exception in case if error has occured
+				$oSettings = $this->GetModuleSettings();
+				if ($oSettings->GetValue('AllowCreateDeleteAccountOnCpanel', false) && self::$bAllowDeleteFromMailServerIfPossible)
+				{
+					$oCpanel = $this->getCpanel($oUser->IdTenant);
+					$sCpanelResponse = $this->executeCpanelAction($oCpanel, 'Email', 'delete_pop',
+						[
+							'email' => $oAccount->Email,
+							'domain' => $sDomain,
+						]
+					);
+					self::parseResponse($sCpanelResponse); // throws exception in case if error has occured
+				}
 			}
 		}
 	}
