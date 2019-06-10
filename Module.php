@@ -130,7 +130,7 @@ class Module extends \Aurora\System\Module\AbstractModule
 			if ($oUser instanceof \Aurora\Modules\Core\Classes\User)
 			{
 				$sDomain = \MailSo\Base\Utils::GetDomainFromEmail($oUser->PublicId);
-				if (!empty($sDomain))
+				if (!empty($sDomain) && $this->isDomainSupported($sDomain))
 				{
 					$iQuota = (int) $this->getConfig('UserDefaultQuotaMB', 1);
 					try
@@ -187,10 +187,6 @@ class Module extends \Aurora\System\Module\AbstractModule
 					}
 				}
 			}
-			if (!$bResult)
-			{	//If Account wasn't created - delete user
-				\Aurora\Modules\Core\Module::Decorator()->DeleteUser($oUser->EntityId);
-			}
 			\Aurora\System\Api::skipCheckUserRole($bPrevState);
 		}
 
@@ -211,7 +207,7 @@ class Module extends \Aurora\System\Module\AbstractModule
 		if ($oUser instanceof \Aurora\Modules\Core\Classes\User && $sAccountEmail === $oUser->PublicId)
 		{
 			$sDomain = \MailSo\Base\Utils::GetDomainFromEmail($sAccountEmail);
-			if (!empty($sDomain))
+			if (!empty($sDomain) && $this->isDomainSupported($sDomain))
 			{
 				$aTenantQuota = \Aurora\Modules\Mail\Module::Decorator()->GetEntitySpaceLimits('Tenant', $oUser->EntityId, $oUser->IdTenant);
 				$iQuota = $aTenantQuota ? $aTenantQuota['UserSpaceLimitMb'] : (int) $this->getConfig('UserDefaultQuotaMB', 1);
@@ -262,7 +258,11 @@ class Module extends \Aurora\System\Module\AbstractModule
 	{
 		$oAccount = $aArgs['Account'];
 		$oUser = $aArgs['User'];
-		if ($oUser instanceof \Aurora\Modules\Core\Classes\User && $oAccount->Email === $oUser->PublicId)
+		if ($oUser instanceof \Aurora\Modules\Core\Classes\User
+				&& $oAccount instanceof \Aurora\Modules\Mail\Classes\Account
+				&& $this->isAccountServerSupported($oAccount)
+				&& $oAccount->Email === $oUser->PublicId
+			)
 		{
 			$sDomain = \MailSo\Base\Utils::GetDomainFromEmail($oAccount->Email);
 			if (!empty($sDomain))
@@ -312,14 +312,17 @@ class Module extends \Aurora\System\Module\AbstractModule
 		$oCpanel = $this->getCpanel($iTenantId);
 		$sLogin = \MailSo\Base\Utils::GetAccountNameFromEmail($sEmail);
 		$sDomain = \MailSo\Base\Utils::GetDomainFromEmail($sEmail);
-		$sCpanelResponse = $this->executeCpanelAction($oCpanel, 'Email', 'edit_pop_quota',
-			[
-				'email' => $sLogin,
-				'domain' => $sDomain,
-				'quota' => $iQuota
-			]
-		);
-		$mResult = self::parseResponse($sCpanelResponse); // throws exception in case if error has occured
+		if ($this->isDomainSupported($sDomain))
+		{
+			$sCpanelResponse = $this->executeCpanelAction($oCpanel, 'Email', 'edit_pop_quota',
+				[
+					'email' => $sLogin,
+					'domain' => $sDomain,
+					'quota' => $iQuota
+				]
+			);
+			$mResult = self::parseResponse($sCpanelResponse); // throws exception in case if error has occured
+		}
 	}
 	
 	/**
@@ -331,7 +334,7 @@ class Module extends \Aurora\System\Module\AbstractModule
 	{
 		$oAccount = $aArguments['Account'];
 
-		if ($oAccount && $this->checkCanChangePassword($oAccount))
+		if ($oAccount && $this->isAccountServerSupported($oAccount))
 		{
 			if (!isset($mResult['Extend']) || !is_array($mResult['Extend']))
 			{
@@ -352,7 +355,9 @@ class Module extends \Aurora\System\Module\AbstractModule
 		$bBreakSubscriptions = false;
 		
 		$oAccount = $aArguments['Account'];
-		if ($oAccount && $this->checkCanChangePassword($oAccount) && $oAccount->getPassword() === $aArguments['CurrentPassword'])
+		if ($oAccount instanceof \Aurora\Modules\Mail\Classes\Account
+				&& $this->isAccountServerSupported($oAccount)
+				&& $oAccount->getPassword() === $aArguments['CurrentPassword'])
 		{
 			$bPasswordChanged = $this->changePassword($oAccount, $aArguments['NewPassword']);
 			$bBreakSubscriptions = true; // break if Cpanel plugin tries to change password in this account. 
@@ -386,55 +391,58 @@ class Module extends \Aurora\System\Module\AbstractModule
 		
 		$oAuthenticatedUser = \Aurora\System\Api::getAuthenticatedUser();
 		$oAccount = \Aurora\System\Api::GetModule('Mail')->GetAccount($aArgs['AccountID']);
-		if ($oCpanel
-				&& $oAuthenticatedUser instanceof \Aurora\Modules\Core\Classes\User
-				&& $oAccount instanceof \Aurora\Modules\Mail\Classes\Account
-				// check if account belongs to authenticated user
-				&& ($oAccount->IdUser === $oAuthenticatedUser->EntityId
-						|| $oAuthenticatedUser->Role === \Aurora\System\Enums\UserRole::SuperAdmin
-						|| $oAuthenticatedUser->Role === \Aurora\System\Enums\UserRole::TenantAdmin))
+		if ($oAccount instanceof \Aurora\Modules\Mail\Classes\Account
+				&& $this->isAccountServerSupported($oAccount))
 		{
-			$sFromEmail = $oAccount->Email;
-			$sFromDomain = \MailSo\Base\Utils::GetDomainFromEmail($sFromEmail);
-			
-			// check if there is forwarder on cPanel
-			$aResult = $this->getForwarder($sFromDomain, $sFromEmail);
-			$bForwarderExists = is_array($aResult) && isset($aResult['Email']) && !empty($aResult['Email']);
-			$sOldToEmail = $bForwarderExists ? $aResult['Email'] : '';
-			// "Enable" indicates if forwarder should exist on cPanel
-			if ($aArgs['Enable'])
+			if ($oCpanel
+					&& $oAuthenticatedUser instanceof \Aurora\Modules\Core\Classes\User
+					// check if account belongs to authenticated user
+					&& ($oAccount->IdUser === $oAuthenticatedUser->EntityId
+							|| $oAuthenticatedUser->Role === \Aurora\System\Enums\UserRole::SuperAdmin
+							|| $oAuthenticatedUser->Role === \Aurora\System\Enums\UserRole::TenantAdmin))
 			{
-				if ($bForwarderExists)
+				$sFromEmail = $oAccount->Email;
+				$sFromDomain = \MailSo\Base\Utils::GetDomainFromEmail($sFromEmail);
+
+				// check if there is forwarder on cPanel
+				$aResult = $this->getForwarder($sFromDomain, $sFromEmail);
+				$bForwarderExists = is_array($aResult) && isset($aResult['Email']) && !empty($aResult['Email']);
+				$sOldToEmail = $bForwarderExists ? $aResult['Email'] : '';
+				// "Enable" indicates if forwarder should exist on cPanel
+				if ($aArgs['Enable'])
 				{
-					$bSameForwarderExists = $bForwarderExists && $sOldToEmail === $sToEmail;
-					if ($bSameForwarderExists)
+					if ($bForwarderExists)
 					{
-						$mResult = true;
+						$bSameForwarderExists = $bForwarderExists && $sOldToEmail === $sToEmail;
+						if ($bSameForwarderExists)
+						{
+							$mResult = true;
+						}
+						else if ($this->deleteForwarder($sFromEmail, $sOldToEmail))
+						{
+							$mResult = $this->createForwarder($sFromDomain, $sFromEmail, $sToEmail);
+						}
 					}
-					else if ($this->deleteForwarder($sFromEmail, $sOldToEmail))
+					else
 					{
 						$mResult = $this->createForwarder($sFromDomain, $sFromEmail, $sToEmail);
 					}
 				}
 				else
 				{
-					$mResult = $this->createForwarder($sFromDomain, $sFromEmail, $sToEmail);
+					if ($bForwarderExists)
+					{
+						$mResult = $this->deleteForwarder($sFromEmail, $sOldToEmail);
+					}
+					else
+					{
+						$mResult = true;
+					}
 				}
 			}
-			else
-			{
-				if ($bForwarderExists)
-				{
-					$mResult = $this->deleteForwarder($sFromEmail, $sOldToEmail);
-				}
-				else
-				{
-					$mResult = true;
-				}
-			}
-		}
 
-		return true; // breaking subscriptions to prevent update in parent module
+			return true; // breaking subscriptions to prevent update in parent module
+		}
 	}
 
 	/**
@@ -451,35 +459,37 @@ class Module extends \Aurora\System\Module\AbstractModule
 		{
 			$oAuthenticatedUser = \Aurora\System\Api::getAuthenticatedUser();
 			$oAccount = \Aurora\System\Api::GetModule('Mail')->GetAccount($aArgs['AccountID']);
-			if ($oAuthenticatedUser instanceof \Aurora\Modules\Core\Classes\User
-				&& $oAccount instanceof \Aurora\Modules\Mail\Classes\Account
-				// check if account belongs to authenticated user
-				&& $oAccount->IdUser === $oAuthenticatedUser->EntityId)
+			if ($oAccount instanceof \Aurora\Modules\Mail\Classes\Account
+					&& $this->isAccountServerSupported($oAccount))
 			{
-				$sDomain = \MailSo\Base\Utils::GetDomainFromEmail($oAccount->Email);
-				$aResult = $this->getForwarder($sDomain, $oAccount->Email);
-
-				if (is_array($aResult))
+				if ($oAuthenticatedUser instanceof \Aurora\Modules\Core\Classes\User
+					// check if account belongs to authenticated user
+					&& $oAccount->IdUser === $oAuthenticatedUser->EntityId)
 				{
-					if (isset($aResult['Email']))
+					$sDomain = \MailSo\Base\Utils::GetDomainFromEmail($oAccount->Email);
+					$aResult = $this->getForwarder($sDomain, $oAccount->Email);
+
+					if (is_array($aResult))
 					{
-						$mResult = [
-							'Enable' => true,
-							'Email' => $aResult['Email']
-						];
-					}
-					else
-					{
-						$mResult = [
-							'Enable' => false,
-							'Email' => ''
-						];
+						if (isset($aResult['Email']))
+						{
+							$mResult = [
+								'Enable' => true,
+								'Email' => $aResult['Email']
+							];
+						}
+						else
+						{
+							$mResult = [
+								'Enable' => false,
+								'Email' => ''
+							];
+						}
 					}
 				}
+				return true; // breaking subscriptions to prevent update in parent module
 			}
 		}
-
-		return true; // breaking subscriptions to prevent update in parent module
 	}
 
 	/**
@@ -496,25 +506,27 @@ class Module extends \Aurora\System\Module\AbstractModule
 		{
 			$oAuthenticatedUser = \Aurora\System\Api::getAuthenticatedUser();
 			$oAccount = \Aurora\System\Api::GetModule('Mail')->GetAccount($aArgs['AccountID']);
-			if ($oAuthenticatedUser instanceof \Aurora\Modules\Core\Classes\User
-				&& $oAccount instanceof \Aurora\Modules\Mail\Classes\Account
-				// check if account belongs to authenticated user
-				&& $oAccount->IdUser === $oAuthenticatedUser->EntityId)
+			if ($oAccount instanceof \Aurora\Modules\Mail\Classes\Account
+					&& $this->isAccountServerSupported($oAccount))
 			{
-				$mAutoresponder = $this->getAutoresponder($oAccount->Email);
-
-				if (is_array($mAutoresponder) && isset($mAutoresponder['Enable']))
+				if ($oAuthenticatedUser instanceof \Aurora\Modules\Core\Classes\User
+					// check if account belongs to authenticated user
+					&& $oAccount->IdUser === $oAuthenticatedUser->EntityId)
 				{
-					$mResult = [
-						'Enable' => $mAutoresponder['Enable'],
-						'Subject' => $mAutoresponder['Subject'],
-						'Message' => $mAutoresponder['Message']
-					];
+					$mAutoresponder = $this->getAutoresponder($oAccount->Email);
+
+					if (is_array($mAutoresponder) && isset($mAutoresponder['Enable']))
+					{
+						$mResult = [
+							'Enable' => $mAutoresponder['Enable'],
+							'Subject' => $mAutoresponder['Subject'],
+							'Message' => $mAutoresponder['Message']
+						];
+					}
 				}
+				return true; // breaking subscriptions to prevent update in parent module
 			}
 		}
-
-		return true; // breaking subscriptions to prevent update in parent module
 	}
 
 	/**
@@ -536,18 +548,21 @@ class Module extends \Aurora\System\Module\AbstractModule
 
 		$oAuthenticatedUser = \Aurora\System\Api::getAuthenticatedUser();
 		$oAccount = \Aurora\System\Api::GetModule('Mail')->GetAccount($aArgs['AccountID']);
-		if ($oAuthenticatedUser instanceof \Aurora\Modules\Core\Classes\User
-			&& $oAccount instanceof \Aurora\Modules\Mail\Classes\Account
-			// check if account belongs to authenticated user
-			&& $oAccount->IdUser === $oAuthenticatedUser->EntityId)
+		if ($oAccount instanceof \Aurora\Modules\Mail\Classes\Account
+				&& $this->isAccountServerSupported($oAccount))
 		{
-			$sSubject = trim($aArgs['Subject']);
-			$sMessage = trim($aArgs['Message']);
-			$sDomain = \MailSo\Base\Utils::GetDomainFromEmail($oAccount->Email);
-			$mResult = $this->updateAutoresponder($sDomain, $oAccount->Email, $sSubject, $sMessage, $aArgs['Enable']);
-		}
+			if ($oAuthenticatedUser instanceof \Aurora\Modules\Core\Classes\User
+				// check if account belongs to authenticated user
+				&& $oAccount->IdUser === $oAuthenticatedUser->EntityId)
+			{
+				$sSubject = trim($aArgs['Subject']);
+				$sMessage = trim($aArgs['Message']);
+				$sDomain = \MailSo\Base\Utils::GetDomainFromEmail($oAccount->Email);
+				$mResult = $this->updateAutoresponder($sDomain, $oAccount->Email, $sSubject, $sMessage, $aArgs['Enable']);
+			}
 
-		return true; // breaking subscriptions to prevent update in parent module
+			return true; // breaking subscriptions to prevent update in parent module
+		}
 	}
 
 	/**
@@ -558,21 +573,29 @@ class Module extends \Aurora\System\Module\AbstractModule
 	 */
 	public function onBeforeGetFilters($aArgs, &$mResult)
 	{
-		$mResult = [];
-
-		$oCpanel = $this->getCpanel();
-		$oAuthenticatedUser = \Aurora\System\Api::getAuthenticatedUser();
-		$oAccount = \Aurora\System\Api::GetModule('Mail')->GetAccount($aArgs['AccountID']);
-		if (isset($aArgs['AccountID']) && $oCpanel
-			&& $oAuthenticatedUser instanceof \Aurora\Modules\Core\Classes\User
-			&& $oAccount instanceof \Aurora\Modules\Mail\Classes\Account
-			// check if account belongs to authenticated user
-			&& $oAccount->IdUser === $oAuthenticatedUser->EntityId)
+		if (!isset($aArgs['AccountID']))
 		{
-			$mResult = $this->getFilters($oAccount);
+			throw new \Aurora\System\Exceptions\ApiException(\Aurora\System\Notifications::InvalidInputParameter);
 		}
 
-		return true; // breaking subscriptions to prevent update in parent module
+		$oAccount = \Aurora\System\Api::GetModule('Mail')->GetAccount($aArgs['AccountID']);
+		if ($oAccount instanceof \Aurora\Modules\Mail\Classes\Account
+				&& $this->isAccountServerSupported($oAccount))
+		{
+			$mResult = [];
+			
+			$oAuthenticatedUser = \Aurora\System\Api::getAuthenticatedUser();
+			$oCpanel = $this->getCpanel();
+			if ($oCpanel
+				&& $oAuthenticatedUser instanceof \Aurora\Modules\Core\Classes\User
+				// check if account belongs to authenticated user
+				&& $oAccount->IdUser === $oAuthenticatedUser->EntityId)
+			{
+				$mResult = $this->getFilters($oAccount);
+			}
+
+			return true; // breaking subscriptions to prevent update in parent module
+		}
 	}
 
 	/**
@@ -589,77 +612,101 @@ class Module extends \Aurora\System\Module\AbstractModule
 			throw new \Aurora\System\Exceptions\ApiException(\Aurora\System\Notifications::InvalidInputParameter);
 		}
 
-		$mResult = false;
-
-		$oCpanel = $this->getCpanel();
-		$oAuthenticatedUser = \Aurora\System\Api::getAuthenticatedUser();
 		$oAccount = \Aurora\System\Api::GetModule('Mail')->GetAccount($aArgs['AccountID']);
-		if ($oCpanel
-			&& $oAuthenticatedUser instanceof \Aurora\Modules\Core\Classes\User
-			&& $oAccount instanceof \Aurora\Modules\Mail\Classes\Account
-			// check if account belongs to authenticated user
-			&& $oAccount->IdUser === $oAuthenticatedUser->EntityId)
+		if ($oAccount instanceof \Aurora\Modules\Mail\Classes\Account
+				&& $this->isAccountServerSupported($oAccount))
 		{
-			if ($this->removeSupportedFilters($oAccount))
+			$mResult = false;
+			
+			$oCpanel = $this->getCpanel();
+			$oAuthenticatedUser = \Aurora\System\Api::getAuthenticatedUser();
+			if ($oCpanel
+				&& $oAuthenticatedUser instanceof \Aurora\Modules\Core\Classes\User
+				// check if account belongs to authenticated user
+				&& $oAccount->IdUser === $oAuthenticatedUser->EntityId)
 			{
-				if (count($aArgs['Filters']) === 0)
+				if ($this->removeSupportedFilters($oAccount))
 				{
-					$mResult = true;
-				}
-				else
-				{
-					foreach ($aArgs['Filters'] as $aWebmailFilter)
+					if (count($aArgs['Filters']) === 0)
 					{
-						$aFilterProperty = self::convertWebmailFIlterToCPanelFIlter($aWebmailFilter, $oAccount);
-						//create filter
-						$sCpanelResponse = $this->executeCpanelAction($oCpanel, 'Email', 'store_filter',
-							$aFilterProperty
-						);
-						$aCreationResult = self::parseResponse($sCpanelResponse); // throws exception in case if error has occured
-						//disable filter if needed
-						if (!$aCreationResult['Status'])
-						{
-							$mResult = false;
-							break;
-						}
-						if (!$aWebmailFilter['Enable'])
-						{
-							$sCpanelResponse = $this->executeCpanelAction($oCpanel, 'Email', 'disable_filter',
-								[
-									'account' => $oAccount->Email,
-									'filtername' => $aFilterProperty['filtername']
-								]
-							);
-							self::parseResponse($sCpanelResponse); // throws exception in case if error has occured
-						}
 						$mResult = true;
+					}
+					else
+					{
+						foreach ($aArgs['Filters'] as $aWebmailFilter)
+						{
+							$aFilterProperty = self::convertWebmailFIlterToCPanelFIlter($aWebmailFilter, $oAccount);
+							//create filter
+							$sCpanelResponse = $this->executeCpanelAction($oCpanel, 'Email', 'store_filter',
+								$aFilterProperty
+							);
+							$aCreationResult = self::parseResponse($sCpanelResponse); // throws exception in case if error has occured
+							//disable filter if needed
+							if (!$aCreationResult['Status'])
+							{
+								$mResult = false;
+								break;
+							}
+							if (!$aWebmailFilter['Enable'])
+							{
+								$sCpanelResponse = $this->executeCpanelAction($oCpanel, 'Email', 'disable_filter',
+									[
+										'account' => $oAccount->Email,
+										'filtername' => $aFilterProperty['filtername']
+									]
+								);
+								self::parseResponse($sCpanelResponse); // throws exception in case if error has occured
+							}
+							$mResult = true;
+						}
 					}
 				}
 			}
-		}
 
-		return true; // breaking subscriptions to prevent update in parent module
+			return true; // breaking subscriptions to prevent update in parent module
+		}
 	}
 
 	/**
-	 * Checks if allowed to change password for account.
+	 * Checks if the CpanelIntegrator module can work with the specified domain.
+	 * @param string $sDomain
+	 * @return bool
+	 */
+	protected function isDomainSupported($sDomain)
+	{
+		$bSupported = in_array('*', $this->getConfig('SupportedServers', array()));
+
+		if (!$bSupported)
+		{
+			$oServer = \Aurora\System\Api::GetModuleDecorator('Mail')->GetMailServerByDomain($sDomain);
+			if ($oServer instanceof \Aurora\Modules\Mail\Classes\Server)
+			{
+				$bSupported = in_array($oServer->IncomingServer, $this->getConfig('SupportedServers'));
+			}
+		}
+		
+		return $bSupported;
+	}
+
+	/**
+	 * Checks if the CpanelIntegrator module can work with the server of the specified account.
 	 * @param \Aurora\Modules\Mail\Classes\Account $oAccount
 	 * @return bool
 	 */
-	protected function checkCanChangePassword($oAccount)
+	protected function isAccountServerSupported($oAccount)
 	{
-		$bFound = in_array('*', $this->getConfig('SupportedServers', array()));
+		$bSupported = in_array('*', $this->getConfig('SupportedServers', array()));
 
-		if (!$bFound)
+		if (!$bSupported)
 		{
 			$oServer = $oAccount->getServer();
-
-			if ($oServer && in_array($oServer->IncomingServer, $this->getConfig('SupportedServers')))
+			if ($oServer instanceof \Aurora\Modules\Mail\Classes\Server)
 			{
-				$bFound = true;
+				$bSupported = in_array($oServer->IncomingServer, $this->getConfig('SupportedServers'));
 			}
 		}
-		return $bFound;
+		
+		return $bSupported;
 	}
 
 	/**
@@ -1129,7 +1176,7 @@ class Module extends \Aurora\System\Module\AbstractModule
 	 * @param object $oAccount
 	 * @return array
 	 */
-	public static function convertCPanelFIltersToWebmailFIlters($aCPanelFilters, $oAccount)
+	protected static function convertCPanelFIltersToWebmailFIlters($aCPanelFilters, $oAccount)
 	{
 		$aResult = [];
 
@@ -1212,7 +1259,7 @@ class Module extends \Aurora\System\Module\AbstractModule
 	 * @param object $oAccount
 	 * @return array
 	 */
-	public static function convertWebmailFIlterToCPanelFIlter($aWebmailFilter, $oAccount)
+	protected static function convertWebmailFIlterToCPanelFIlter($aWebmailFilter, $oAccount)
 	{
 		$sAction = '';
 		$sPart = '';
@@ -1377,7 +1424,8 @@ class Module extends \Aurora\System\Module\AbstractModule
 		}
 		
 		$oAccount = \Aurora\System\Api::GetModuleDecorator('Mail')->GetAccountByEmail($oUser->PublicId, $oUser->EntityId);
-		if ($oAccount)
+		if ($oAccount instanceof \Aurora\Modules\Mail\Classes\Account
+				&& $this->isAccountServerSupported($oAccount))
 		{
 			$sEmail = $oAccount->Email;
 			$sDomain = \MailSo\Base\Utils::GetDomainFromEmail($sEmail);
@@ -1428,7 +1476,8 @@ class Module extends \Aurora\System\Module\AbstractModule
 		
 		$oMailDecorator = \Aurora\System\Api::GetModuleDecorator('Mail');
 		$oAccount = $bUserFound && $oMailDecorator ? $oMailDecorator->GetAccountByEmail($oUser->PublicId, $oUser->EntityId) : null;
-		if ($oAccount)
+		if ($oAccount instanceof \Aurora\Modules\Mail\Classes\Account
+				&& $this->isAccountServerSupported($oAccount))
 		{
 			$sEmail = $oAccount->Email;
 			$sDomain = \MailSo\Base\Utils::GetDomainFromEmail($oAccount->Email);
@@ -1475,7 +1524,8 @@ class Module extends \Aurora\System\Module\AbstractModule
 		$bResult = false;
 		$oMailDecorator = \Aurora\System\Api::GetModuleDecorator('Mail');
 		$oAccount = $bUserFound && $oMailDecorator ? $oMailDecorator->GetAccountByEmail($oUser->PublicId, $oUser->EntityId) : null;
-		if ($oAccount)
+		if ($oAccount instanceof \Aurora\Modules\Mail\Classes\Account
+				&& $this->isAccountServerSupported($oAccount))
 		{
 			foreach ($Aliases as $sAlias)
 			{
