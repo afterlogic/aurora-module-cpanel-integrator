@@ -125,6 +125,7 @@ CAliasesPerUserAdminSettingsView.prototype.requestNewData = function ()
 CAliasesPerUserAdminSettingsView.prototype.requestAliases = function ()
 {
 	this.iRequestedUserId = this.iUserId;
+	this.aliases([]);
 	Ajax.send(Settings.ServerModuleName, 'GetAliases', {'UserId': this.iUserId}, function (oResponse) {
 		if (oResponse.Result)
 		{
