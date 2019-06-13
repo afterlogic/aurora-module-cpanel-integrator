@@ -341,6 +341,14 @@ class Module extends \Aurora\System\Module\AbstractModule
 				$mResult['Extend'] = [];
 			}
 			$mResult['Extend']['AllowChangePasswordOnMailServer'] = true;
+			
+			$oMailModule = \Aurora\System\Api::GetModule('Mail');
+			if ($oMailModule)
+			{
+				$mResult['AllowFilters'] = $oMailModule->getConfig('AllowFilters', '');
+				$mResult['AllowForward'] = $oMailModule->getConfig('AllowForward', '');
+				$mResult['AllowAutoresponder'] = $oMailModule->getConfig('AllowAutoresponder', '');
+			}
 		}
 	}
 
