@@ -727,49 +727,54 @@ class Module extends \Aurora\System\Module\AbstractModule
 	protected function changePassword($oAccount, $sPassword)
 	{
 		$bResult = false;
+		
 		if (0 < strlen($oAccount->IncomingPassword) && $oAccount->IncomingPassword !== $sPassword )
 		{
 			$cpanel_host = $this->getConfig('CpanelHost', '');
-			$cpanel_user = $this->getConfig('CpanelUser','');
-			$cpanel_pass = $this->getConfig('CpanelPassword','');
+			$cpanel_user = $this->getConfig('CpanelUser', '');
+			$cpanel_pass = $this->getConfig('CpanelPassword', '');
 			$cpanel_user0 = null;
 
 			$email_user = urlencode($oAccount->Email);
 			$email_pass = urlencode($sPassword);
-			list($email_login, $email_domain) = explode('@', $oAccount->Email);
+			$sDomain = \MailSo\Base\Utils::GetDomainFromEmail($oAccount->Email);
 
-			if ($cpanel_user == "root")
+			if ($cpanel_user == 'root')
 			{
-				$query = "https://".$cpanel_host.":2087/json-api/listaccts?api.version=1&searchtype=domain&search=".$email_domain;
+				$query = 'https://' . $cpanel_host . ':2087/json-api/listaccts?api.version=1&searchtype=domain&search=' . $sDomain;
 
 				$curl = curl_init();
 				curl_setopt($curl, CURLOPT_SSL_VERIFYPEER,0);
 				curl_setopt($curl, CURLOPT_SSL_VERIFYHOST,0);
 				curl_setopt($curl, CURLOPT_HEADER,0);
 				curl_setopt($curl, CURLOPT_RETURNTRANSFER,1);
-				$header[0] = "Authorization: Basic " . base64_encode($cpanel_user.":".$cpanel_pass) . "\n\r";
+				$header[0] = 'Authorization: Basic ' . base64_encode($cpanel_user . ':' . $cpanel_pass) . "\n\r";
 				curl_setopt($curl, CURLOPT_HTTPHEADER, $header);
 				curl_setopt($curl, CURLOPT_URL, $query);
 				$result = curl_exec($curl);
-				if ($result == false) {
-					\Aurora\System\Api::Log("curl_exec threw error \"" . curl_error($curl) . "\" for $query");
+				if ($result == false)
+				{
+					\Aurora\System\Api::Log('curl_exec threw error "' . curl_error($curl) . '" for ' . $query);
 					curl_close($curl);
 					throw new \Aurora\System\Exceptions\ApiException(\Aurora\System\Exceptions\Errs::UserManager_AccountNewPasswordUpdateError);
-				} else {
+				}
+				else
+				{
 					curl_close($curl);
-					\Aurora\System\Api::Log("..:: QUERY0 ::.. ".$query);
+					\Aurora\System\Api::Log('..:: QUERY0 ::.. ' . $query);
 					$json_res = json_decode($result,true);
-					\Aurora\System\Api::Log("..:: RESULT0 ::.. ".$result);
-					if(isset($json_res['data']['acct'][0]['user'])) {
+					\Aurora\System\Api::Log('..:: RESULT0 ::.. ' . $result);
+					if (isset($json_res['data']['acct'][0]['user']))
+					{
 						$cpanel_user0 = $json_res['data']['acct'][0]['user'];
-						\Aurora\System\Api::Log("..:: USER ::.. ".$cpanel_user0);
+						\Aurora\System\Api::Log('..:: USER ::.. ' . $cpanel_user0);
 					}
 				}
-				$query = "https://".$cpanel_host.":2087/json-api/cpanel?cpanel_jsonapi_user=".$cpanel_user0."&cpanel_jsonapi_module=Email&cpanel_jsonapi_func=passwdpop&cpanel_jsonapi_apiversion=2&email=".$email_user."&password=".$email_pass."&domain=".$email_domain;
+				$query = 'https://' . $cpanel_host . ':2087/json-api/cpanel?cpanel_jsonapi_user=' . $cpanel_user0 . '&cpanel_jsonapi_module=Email&cpanel_jsonapi_func=passwdpop&cpanel_jsonapi_apiversion=2&email=' . $email_user . '&password=' . $email_pass . '&domain=' . $sDomain;
 			}
 			else
 			{
-				$query = "https://".$cpanel_host.":2083/execute/Email/passwd_pop?email=".$email_user."&password=".$email_pass."&domain=".$email_domain;
+				$query = 'https://' . $cpanel_host . ':2083/execute/Email/passwd_pop?email=' . $email_user . '&password=' . $email_pass . '&domain=' . $sDomain;
 			}
 
 			$curl = curl_init();
@@ -777,27 +782,34 @@ class Module extends \Aurora\System\Module\AbstractModule
 			curl_setopt($curl, CURLOPT_SSL_VERIFYHOST,0);
 			curl_setopt($curl, CURLOPT_HEADER,0);
 			curl_setopt($curl, CURLOPT_RETURNTRANSFER,1);
-			$header[0] = "Authorization: Basic " . base64_encode($cpanel_user.":".$cpanel_pass) . "\n\r";
+			$header[0] = 'Authorization: Basic ' . base64_encode($cpanel_user . ':' . $cpanel_pass) . "\n\r";
 			curl_setopt($curl, CURLOPT_HTTPHEADER, $header);
 			curl_setopt($curl, CURLOPT_URL, $query);
 			$result = curl_exec($curl);
-			if ($result == false) {
-				\Aurora\System\Api::Log("curl_exec threw error \"" . curl_error($curl) . "\" for $query");
+			if ($result === false)
+			{
+				\Aurora\System\Api::Log('curl_exec threw error "' . curl_error($curl) . '" for ' . $query);
 				curl_close($curl);
 				throw new \Aurora\System\Exceptions\ApiException(\Aurora\System\Exceptions\Errs::UserManager_AccountNewPasswordUpdateError);
-			} else {
+			}
+			else
+			{
 				curl_close($curl);
-				\Aurora\System\Api::Log("..:: QUERY ::.. ".$query);
+				\Aurora\System\Api::Log('..:: QUERY ::.. ' . $query);
 				$json_res = json_decode($result,true);
-				\Aurora\System\Api::Log("..:: RESULT ::.. ".$result);
-				if ((isset($json_res["errors"]))&&($json_res["errors"]!==null))
+				\Aurora\System\Api::Log('..:: RESULT ::.. ' . $result);
+				if ((isset($json_res['errors']))&&($json_res['errors']!==null))
 				{
-					throw new \Aurora\System\Exceptions\ApiException(\Aurora\System\Exceptions\Errs::UserManager_AccountNewPasswordUpdateError);
-				} else {
+					$sErrorText = is_string($json_res['errors']) ? $json_res['errors'] : (is_array($json_res['errors']) && isset($json_res['errors'][0]) ? $json_res['errors'][0] : '');
+					throw new \Aurora\System\Exceptions\ApiException(\Aurora\System\Exceptions\Errs::UserManager_AccountNewPasswordUpdateError, null, $sErrorText);
+				}
+				else
+				{
 					$bResult = true;
 				}
 			}
 		}
+		
 		return $bResult;
 	}
 
