@@ -686,7 +686,7 @@ class Module extends \Aurora\System\Module\AbstractModule
 
 		if (!$bSupported)
 		{
-			$oServer = \Aurora\System\Api::GetModuleDecorator('Mail')->GetMailServerByDomain($sDomain);
+			$oServer = \Aurora\System\Api::GetModuleDecorator('Mail')->GetMailServerByDomain($sDomain, /*AllowWildcardDomain*/true);
 			if ($oServer instanceof \Aurora\Modules\Mail\Classes\Server)
 			{
 				$bSupported = in_array($oServer->IncomingServer, $this->getConfig('SupportedServers'));
