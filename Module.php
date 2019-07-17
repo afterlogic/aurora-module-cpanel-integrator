@@ -45,7 +45,8 @@ class Module extends \Aurora\System\Module\AbstractModule
 		$this->subscribeEvent('Mail::UpdateQuota', array($this, 'onUpdateQuota'));
 		
 		$this->subscribeEvent('AdminPanelWebclient::DeleteEntities::before', array($this, 'onBeforeDeleteEntities'));
-		$this->subscribeEvent('MailDomains::DeleteDomains::before', array($this, 'onBeforeDeleteDomains'));
+		$this->subscribeEvent('Mail::DeleteServer::before', array($this, 'onBeforeDeleteEntities'));
+		$this->subscribeEvent('MailDomains::DeleteDomains::before', array($this, 'onBeforeDeleteEntities'));
 	}
 
 	/**
@@ -235,16 +236,6 @@ class Module extends \Aurora\System\Module\AbstractModule
 	 * @param mixed $mResult
 	 */
 	public function onBeforeDeleteEntities($aArgs, &$mResult)
-	{
-		self::$bAllowDeleteFromMailServerIfPossible = isset($aArgs['DeletionConfirmedByAdmin']) && $aArgs['DeletionConfirmedByAdmin'] === true;
-	}
-	
-	/**
-	 * Sets flag that allows to delete mail account on cPanel.
-	 * @param array $aArgs
-	 * @param mixed $mResult
-	 */
-	public function onBeforeDeleteDomains($aArgs, &$mResult)
 	{
 		self::$bAllowDeleteFromMailServerIfPossible = isset($aArgs['DeletionConfirmedByAdmin']) && $aArgs['DeletionConfirmedByAdmin'] === true;
 	}

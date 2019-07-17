@@ -69,6 +69,8 @@ module.exports = function (oAppData) {
 								case 'Domain':
 									sAddText = TextUtils.i18n('%MODULENAME%/CONFIRM_CPANEL_ACCOUNTS_WILL_BE_DELETED_WITH_DOMAINS_HTML_PLURAL', {}, null, oParams.Count);
 									break;
+								case 'Server':
+									sAddText = TextUtils.i18n('%MODULENAME%/CONFIRM_CPANEL_ACCOUNTS_WILL_BE_DELETED_WITH_SERVER_HTML');
 								case 'Tenant':
 									sAddText = TextUtils.i18n('%MODULENAME%/CONFIRM_CPANEL_ACCOUNTS_WILL_BE_DELETED_WITH_TENANTS_HTML_PLURAL', {}, null, oParams.Count);
 									break;
