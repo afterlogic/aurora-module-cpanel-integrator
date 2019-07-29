@@ -44,7 +44,11 @@ class Module extends \Aurora\System\Module\AbstractModule
 		$this->subscribeEvent('Mail::UpdateFilters::before', array($this, 'onBeforeUpdateFilters'));
 		$this->subscribeEvent('Mail::UpdateQuota', array($this, 'onUpdateQuota'));
 		
-		$this->subscribeEvent('AdminPanelWebclient::DeleteEntities::before', array($this, 'onBeforeDeleteEntities'));
+		$this->subscribeEvent('AdminPanelWebclient::DeleteEntities::before', array($this, 'onBeforeDeleteEntities'));/** @deprecated since version 8.3.7 **/
+		$this->subscribeEvent('Core::DeleteTenant::before', array($this, 'onBeforeDeleteEntities'));
+		$this->subscribeEvent('Core::DeleteTenants::before', array($this, 'onBeforeDeleteEntities'));
+		$this->subscribeEvent('Core::DeleteUser::before', array($this, 'onBeforeDeleteEntities'));
+		$this->subscribeEvent('Core::DeleteUsers::before', array($this, 'onBeforeDeleteEntities'));
 		$this->subscribeEvent('Mail::DeleteServer::before', array($this, 'onBeforeDeleteEntities'));
 		$this->subscribeEvent('MailDomains::DeleteDomains::before', array($this, 'onBeforeDeleteEntities'));
 	}
@@ -258,10 +262,10 @@ class Module extends \Aurora\System\Module\AbstractModule
 			$sDomain = \MailSo\Base\Utils::GetDomainFromEmail($oAccount->Email);
 			if (!empty($sDomain))
 			{
-				$aAliases = $this->Decorator()->GetAliases($oUser->EntityId);
+				$aAliases = self::Decorator()->GetAliases($oUser->EntityId);
 				if (isset($aAliases['Aliases']) && is_array($aAliases['Aliases']) && count($aAliases['Aliases']) > 0)
 				{
-					$this->Decorator()->DeleteAliases($oUser->EntityId, $aAliases['Aliases']);
+					self::Decorator()->DeleteAliases($oUser->EntityId, $aAliases['Aliases']);
 				}
 				
 				$aForwardArgs = [
@@ -1422,8 +1426,7 @@ class Module extends \Aurora\System\Module\AbstractModule
 	{
 		$oAuthenticatedUser = \Aurora\System\Api::getAuthenticatedUser();
 		
-		$oCoreDecorator = \Aurora\Modules\Core\Module::Decorator();
-		$oUser = $oCoreDecorator ? $oCoreDecorator->GetUser($UserId) : null;
+		$oUser = \Aurora\Modules\Core\Module::Decorator()->GetUserUnchecked($UserId);
 		$bUserFound = $oUser instanceof \Aurora\Modules\Core\Classes\User;
 		if ($bUserFound && $oAuthenticatedUser->Role === \Aurora\System\Enums\UserRole::TenantAdmin && $oUser->IdTenant === $oAuthenticatedUser->IdTenant)
 		{
@@ -1473,8 +1476,7 @@ class Module extends \Aurora\System\Module\AbstractModule
 	{
 		$oAuthenticatedUser = \Aurora\System\Api::getAuthenticatedUser();
 		
-		$oCoreDecorator = \Aurora\Modules\Core\Module::Decorator();
-		$oUser = $oCoreDecorator ? $oCoreDecorator->GetUser($UserId) : null;
+		$oUser = \Aurora\Modules\Core\Module::Decorator()->GetUserUnchecked($UserId);
 		$bUserFound = $oUser instanceof \Aurora\Modules\Core\Classes\User;
 		if ($bUserFound && $oAuthenticatedUser->Role === \Aurora\System\Enums\UserRole::TenantAdmin && $oUser->IdTenant === $oAuthenticatedUser->IdTenant)
 		{
@@ -1519,8 +1521,7 @@ class Module extends \Aurora\System\Module\AbstractModule
 	{
 		$oAuthenticatedUser = \Aurora\System\Api::getAuthenticatedUser();
 		
-		$oCoreDecorator = \Aurora\Modules\Core\Module::Decorator();
-		$oUser = $oCoreDecorator ? $oCoreDecorator->GetUser($UserId) : null;
+		$oUser = \Aurora\Modules\Core\Module::Decorator()->GetUserUnchecked($UserId);
 		$bUserFound = $oUser instanceof \Aurora\Modules\Core\Classes\User;
 		
 		if ($bUserFound && $oAuthenticatedUser->Role === \Aurora\System\Enums\UserRole::TenantAdmin && $oUser->IdTenant === $oAuthenticatedUser->IdTenant)
