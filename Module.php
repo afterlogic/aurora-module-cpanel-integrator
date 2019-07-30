@@ -1341,7 +1341,7 @@ class Module extends \Aurora\System\Module\AbstractModule
 		if (empty($TenantId))
 		{
 			$oAuthenticatedUser = \Aurora\System\Api::getAuthenticatedUser();
-			if ($oAuthenticatedUser->Role === \Aurora\System\Enums\UserRole::TenantAdmin)
+			if ($oAuthenticatedUser instanceof \Aurora\Modules\Core\Classes\User && $oAuthenticatedUser->Role === \Aurora\System\Enums\UserRole::TenantAdmin)
 			{
 				return [
 					'AllowAliases' => $oSettings->GetValue('AllowAliases', false),
@@ -1355,7 +1355,7 @@ class Module extends \Aurora\System\Module\AbstractModule
 			\Aurora\System\Api::checkUserRoleIsAtLeast(\Aurora\System\Enums\UserRole::TenantAdmin);
 			$oTenant = \Aurora\System\Api::getTenantById($TenantId);
 
-			if ($oTenant)
+			if ($oTenant instanceof \Aurora\Modules\Core\Classes\Tenant)
 			{
 				return [
 					'CpanelHost' => $oSettings->GetTenantValue($oTenant->Name, 'CpanelHost', ''),
