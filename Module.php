@@ -344,6 +344,13 @@ class Module extends \Aurora\System\Module\AbstractModule
 				$mResult['AllowForward'] = $oMailModule->getConfig('AllowForward', '');
 				$mResult['AllowAutoresponder'] = $oMailModule->getConfig('AllowAutoresponder', '');
 			}
+			
+			$oUser = \Aurora\Modules\Core\Module::Decorator()->GetUserUnchecked($oAccount->IdUser);
+			if ($oAccount->Email === $oUser->PublicId)
+			{
+				$aAliases = self::Decorator()->GetAliases($oAccount->IdUser);
+				$mResult['Extend']['Aliases'] = is_array($aAliases) && isset($aAliases['Aliases']) ? $aAliases['Aliases'] : [];
+			}
 		}
 	}
 
@@ -1428,7 +1435,11 @@ class Module extends \Aurora\System\Module\AbstractModule
 		
 		$oUser = \Aurora\Modules\Core\Module::Decorator()->GetUserUnchecked($UserId);
 		$bUserFound = $oUser instanceof \Aurora\Modules\Core\Classes\User;
-		if ($bUserFound && $oAuthenticatedUser->Role === \Aurora\System\Enums\UserRole::TenantAdmin && $oUser->IdTenant === $oAuthenticatedUser->IdTenant)
+		if ($bUserFound && $oAuthenticatedUser->Role === \Aurora\System\Enums\UserRole::NormalUser && $oUser->EntityId === $oAuthenticatedUser->EntityId)
+		{
+			\Aurora\System\Api::checkUserRoleIsAtLeast(\Aurora\System\Enums\UserRole::NormalUser);
+		}
+		else if ($bUserFound && $oAuthenticatedUser->Role === \Aurora\System\Enums\UserRole::TenantAdmin && $oUser->IdTenant === $oAuthenticatedUser->IdTenant)
 		{
 			\Aurora\System\Api::checkUserRoleIsAtLeast(\Aurora\System\Enums\UserRole::TenantAdmin);
 		}
