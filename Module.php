@@ -241,7 +241,10 @@ class Module extends \Aurora\System\Module\AbstractModule
 	 */
 	public function onBeforeDeleteEntities($aArgs, &$mResult)
 	{
-		self::$bAllowDeleteFromMailServerIfPossible = isset($aArgs['DeletionConfirmedByAdmin']) && $aArgs['DeletionConfirmedByAdmin'] === true;
+		if (isset($aArgs['DeletionConfirmedByAdmin']) && $aArgs['DeletionConfirmedByAdmin'] === true)
+		{
+			self::$bAllowDeleteFromMailServerIfPossible = true;
+		}
 	}
 	
 	/**
