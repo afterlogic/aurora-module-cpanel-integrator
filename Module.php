@@ -351,8 +351,13 @@ class Module extends \Aurora\System\Module\AbstractModule
 			$oUser = \Aurora\Modules\Core\Module::Decorator()->GetUserUnchecked($oAccount->IdUser);
 			if ($oAccount->Email === $oUser->PublicId)
 			{
-				$aAliases = self::Decorator()->GetAliases($oAccount->IdUser);
-				$mResult['Extend']['Aliases'] = is_array($aAliases) && isset($aAliases['Aliases']) ? $aAliases['Aliases'] : [];
+				try
+				{
+					$aAliases = self::Decorator()->GetAliases($oAccount->IdUser);
+					$mResult['Extend']['Aliases'] = is_array($aAliases) && isset($aAliases['Aliases']) ? $aAliases['Aliases'] : [];
+				}
+				catch (\Exception $oException)
+				{}
 			}
 		}
 	}
