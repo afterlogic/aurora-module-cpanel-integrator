@@ -1016,7 +1016,7 @@ class Module extends \Aurora\System\Module\AbstractModule
 					'body' => $sMessage,
 					'domain' => $sDomain,
 					'is_html' => 0,
-					'interval' => 0,
+					'interval' => 8,
 					'start' => $iStartTime,
 					'stop' => $iStopTime
 				]
