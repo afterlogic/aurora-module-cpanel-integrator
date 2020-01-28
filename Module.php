@@ -84,6 +84,8 @@ class Module extends \Aurora\System\Module\AbstractModule
 				'auth_type' => 'password',
 				'password' => $sPassword,
 			]);
+			
+			$this->oCpanel->setTimeout(30);
 		}
 
 		return $this->oCpanel;
