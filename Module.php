@@ -18,12 +18,21 @@ class Module extends \Aurora\System\Module\AbstractModule
 {
 	const UAPI = '3';
 	private $oCpanel = null;
-	public $oMailModule = null;
-	
+
 	protected static $bAllowDeleteFromMailServerIfPossible = false;
+	protected $aManagers = [
+		'Aliases' => null
+	];
+
+	public $oMailModule = null;
 
 	public function init()
 	{
+		$this->aErrors = [
+			Enums\ErrorCodes::DomainOutsideTenant		=> $this->i18N('ERROR_DOMAIN_OUTSIDE_TENANT'),
+			Enums\ErrorCodes::AliaMatchesExistingEmail	=> $this->i18N('ERROR_CREATE_ALIAS'),
+			Enums\ErrorCodes::AliasAlreadyExists		=> $this->i18N('ERROR_ALIAS_ALREADY_EXISTS'),
+		];
 		$oAuthenticatedUser = \Aurora\System\Api::getAuthenticatedUser();
 		if ($this->getConfig('AllowCreateDeleteAccountOnCpanel', false) && $oAuthenticatedUser && 
 				($oAuthenticatedUser->Role === \Aurora\System\Enums\UserRole::SuperAdmin || $oAuthenticatedUser->Role === \Aurora\System\Enums\UserRole::TenantAdmin))
@@ -51,6 +60,17 @@ class Module extends \Aurora\System\Module\AbstractModule
 		$this->subscribeEvent('Core::DeleteUsers::before', array($this, 'onBeforeDeleteEntities'));
 		$this->subscribeEvent('Mail::DeleteServer::before', array($this, 'onBeforeDeleteEntities'));
 		$this->subscribeEvent('MailDomains::DeleteDomains::before', array($this, 'onBeforeDeleteEntities'));
+	}
+
+	public function getManager($sManager)
+	{
+		if ($this->aManagers[$sManager] === null)
+		{
+			$sManagerClass = Module::getNamespace() . "\\Managers\\" . $sManager;
+			$this->aManagers[$sManager] = new $sManagerClass($this);
+		}
+
+		return $this->aManagers[$sManager];
 	}
 
 	/**
@@ -1358,7 +1378,13 @@ class Module extends \Aurora\System\Module\AbstractModule
 		if (empty($TenantId))
 		{
 			$oAuthenticatedUser = \Aurora\System\Api::getAuthenticatedUser();
-			if ($oAuthenticatedUser instanceof \Aurora\Modules\Core\Classes\User && $oAuthenticatedUser->Role === \Aurora\System\Enums\UserRole::TenantAdmin)
+			if ($oAuthenticatedUser instanceof \Aurora\Modules\Core\Classes\User && $oAuthenticatedUser->Role === \Aurora\System\Enums\UserRole::NormalUser)
+			{
+				return [
+					'AllowAliases' => $oSettings->GetValue('AllowAliases', false)
+				];
+			}
+			else if ($oAuthenticatedUser instanceof \Aurora\Modules\Core\Classes\User && $oAuthenticatedUser->Role === \Aurora\System\Enums\UserRole::TenantAdmin)
 			{
 				return [
 					'AllowAliases' => $oSettings->GetValue('AllowAliases', false),
@@ -1457,29 +1483,62 @@ class Module extends \Aurora\System\Module\AbstractModule
 		{
 			\Aurora\System\Api::checkUserRoleIsAtLeast(\Aurora\System\Enums\UserRole::SuperAdmin);
 		}
-		
 		$oAccount = \Aurora\System\Api::GetModuleDecorator('Mail')->GetAccountByEmail($oUser->PublicId, $oUser->EntityId);
 		if ($oAccount instanceof \Aurora\Modules\Mail\Classes\Account
 				&& $this->isAccountServerSupported($oAccount))
 		{
 			$sEmail = $oAccount->Email;
 			$sDomain = \MailSo\Base\Utils::GetDomainFromEmail($sEmail);
-			
-			$aForwarders = $this->getDomainForwarders($sEmail, $sDomain, $oUser->IdTenant);
-			$aAliases = [];
-			foreach ($aForwarders as $oForwarder)
+
+			$aAliases = $this->getManager('Aliases')->getAliasesByUserId($oUser->EntityId);
+			$oMailModule = \Aurora\System\Api::GetModule('Mail');
+			//is Server Supported
+			$oServer = $oMailModule->getServersManager()->getServer($oAccount->ServerId);
+			$bSupported = in_array($oServer->IncomingServer, $this->getConfig('SupportedServers'));
+			if ($bSupported)
 			{
-				$sFromEmail = $oForwarder->dest;
-				$sToEmail = $oForwarder->forward;
-				if ($sToEmail === $sEmail)
+				$aServerDomainsByTenant = $oMailModule::Decorator()->GetServerDomains($oAccount->ServerId, $oUser->IdTenant);
+				//Get forwarders for all supported domains
+				$aForwarders = [];
+				foreach ($aServerDomainsByTenant as $sServerDomain)
 				{
-					$aAliases[] = $sFromEmail;
+					$aForwarders = array_merge($aForwarders, $this->getDomainForwarders($sEmail, $sServerDomain, $oUser->IdTenant));
 				}
+				$aForwardersFromEmail = [];
+				//filter forvarders
+				$aFilteredForwarders = $this->getAliasesFromForwarders($aForwarders);
+				foreach ($aFilteredForwarders as $oForwarder)
+				{
+					$sFromEmail = $oForwarder->dest;
+					$sToEmail = $oForwarder->forward;
+					if ($sToEmail === $sEmail)
+					{
+						$aForwardersFromEmail[] = $sFromEmail;
+					}
+				}
+				$aAliasesEmail = array_map(function($oAlias) {
+					return $oAlias->Email;
+				}, $aAliases);
+				foreach ($aForwardersFromEmail as $sForwarderFromEmail)
+				{
+					if (!in_array($sForwarderFromEmail, $aAliasesEmail))
+					{
+						//create eav-alias if doesn't exists
+						$oAlias = new \Aurora\Modules\CpanelIntegrator\Classes\Alias(self::GetName());
+						$oAlias->IdUser = $oUser->EntityId;
+						$oAlias->IdAccount = $oAccount->EntityId;
+						$oAlias->Email = $sForwarderFromEmail;
+						$oAlias->ForwardTo = $oAccount->Email;
+						$this->getManager('Aliases')->createAlias($oAlias);
+					}
+				}
+				$aAliases = $this->getManager('Aliases')->getAliasesByUserId($oUser->EntityId);
 			}
 
 			return [
-				'Domain' => $sDomain,
-				'Aliases' => $aAliases
+				'Domain'		=> $sDomain,
+				'Aliases'		=> $aForwardersFromEmail,
+				'ObjAliases'	=> $aAliases
 			];
 		}
 		
@@ -1499,7 +1558,11 @@ class Module extends \Aurora\System\Module\AbstractModule
 		
 		$oUser = \Aurora\Modules\Core\Module::Decorator()->GetUserUnchecked($UserId);
 		$bUserFound = $oUser instanceof \Aurora\Modules\Core\Classes\User;
-		if ($bUserFound && $oAuthenticatedUser->Role === \Aurora\System\Enums\UserRole::TenantAdmin && $oUser->IdTenant === $oAuthenticatedUser->IdTenant)
+		if ($bUserFound && $oAuthenticatedUser->Role === \Aurora\System\Enums\UserRole::NormalUser && $UserId === $oAuthenticatedUser->EntityId)
+		{
+			\Aurora\System\Api::checkUserRoleIsAtLeast(\Aurora\System\Enums\UserRole::NormalUser);
+		}
+		else if ($bUserFound && $oAuthenticatedUser->Role === \Aurora\System\Enums\UserRole::TenantAdmin && $oUser->IdTenant === $oAuthenticatedUser->IdTenant)
 		{
 			\Aurora\System\Api::checkUserRoleIsAtLeast(\Aurora\System\Enums\UserRole::TenantAdmin);
 		}
@@ -1510,6 +1573,44 @@ class Module extends \Aurora\System\Module\AbstractModule
 		
 		$oMailDecorator = \Aurora\System\Api::GetModuleDecorator('Mail');
 		$oAccount = $bUserFound && $oMailDecorator ? $oMailDecorator->GetAccountByEmail($oUser->PublicId, $oUser->EntityId) : null;
+		$aServerDomainsByTenant = $oMailDecorator->GetServerDomains($oAccount->ServerId, $oUser->IdTenant);
+		//AliasDomain must be in the tenant’s domain list
+		if (!in_array($AliasDomain, $aServerDomainsByTenant))
+		{
+			throw new \Aurora\System\Exceptions\ApiException(Enums\ErrorCodes::DomainOutsideTenant);
+		}
+		//Checking if an alias matches an existing account
+		$oCpanel = $this->getCpanel();
+		if ($oCpanel)
+		{
+			$sCpanelResponse = $this->executeCpanelAction($oCpanel, 'Email', 'list_pops', []);
+			$aParseResult = self::parseResponse($sCpanelResponse);
+			if ($aParseResult && isset($aParseResult['Data']))
+			{
+				$aEmailAccountsOnCPanel = array_map(function($oAccount) {
+					return $oAccount->email;
+				}, $aParseResult['Data']);
+				if (in_array($AliasName . '@' . $AliasDomain, $aEmailAccountsOnCPanel))
+				{
+					throw new \Aurora\System\Exceptions\ApiException(Enums\ErrorCodes::AliaMatchesExistingEmail);
+				}
+			}
+		}
+		//Check if an alias exists on CPanel
+		$sDomain = \MailSo\Base\Utils::GetDomainFromEmail($oAccount->Email);
+		$aResult = $this->getForwarder($AliasDomain, $AliasName . '@' . $AliasDomain);
+		$bAliasExists = is_array($aResult) && isset($aResult['Email']) && !empty($aResult['Email']);
+		if ($bAliasExists)
+		{
+			throw new \Aurora\System\Exceptions\ApiException(Enums\ErrorCodes::AliasAlreadyExists);
+		}
+		//Check if an alias exists in EAV
+		$oAliases = $this->getManager('Aliases')->getAliases(0, 0, ['Email' => $AliasName . '@' . $AliasDomain]);
+		if (!empty($oAliases))
+		{
+			throw new \Aurora\System\Exceptions\ApiException(Enums\ErrorCodes::AliasAlreadyExists);
+		}
+
 		if ($oAccount instanceof \Aurora\Modules\Mail\Classes\Account
 				&& $this->isAccountServerSupported($oAccount))
 		{
@@ -1526,12 +1627,58 @@ class Module extends \Aurora\System\Module\AbstractModule
 				'CreateAlias::before', 
 				$aArgs
 			);
-			return $this->createForwarder($AliasDomain, $AliasName . '@' . $AliasDomain, $oAccount->Email, $oUser->IdTenant);
+			$bCreateForwardewResult = $this->createForwarder($AliasDomain, $AliasName . '@' . $AliasDomain, $oAccount->Email, $oUser->IdTenant);
+			if ($bCreateForwardewResult)
+			{
+				//create eav Alias
+				$oAlias = new \Aurora\Modules\CpanelIntegrator\Classes\Alias(self::GetName());
+				$oAlias->IdUser = $oUser->EntityId;
+				$oAlias->IdAccount = $oAccount->EntityId;
+				$oAlias->Email = $AliasName . '@' . $AliasDomain;
+				$oAlias->ForwardTo = $oAccount->Email;
+				$this->getManager('Aliases')->createAlias($oAlias);
+			}
+
+			return true;
 		}
 		
 		return false;
 	}
-	
+
+	/**
+	 * Update existing Alias
+	 *
+	 * @param int $UserId
+	 * @param int $AccountID
+	 * @param stryng $FriendlyName
+	 * @param int $EntityId
+	 * @return bool
+	 * @throws \Aurora\System\Exceptions\ApiException
+	 */
+	public function UpdateAlias($UserId, $AccountID, $FriendlyName, $EntityId)
+	{
+		\Aurora\System\Api::checkUserRoleIsAtLeast(\Aurora\System\Enums\UserRole::NormalUser);
+
+		$bResult = false;
+		$oUser = \Aurora\System\Api::getAuthenticatedUser();
+		$oMailDecorator = \Aurora\System\Api::GetModuleDecorator('Mail');
+		$oAccount = $oMailDecorator ? $oMailDecorator->GetAccount($AccountID) : null;
+		if (!$oAccount instanceof \Aurora\Modules\Mail\Classes\Account || $oAccount->IdUser !== $oUser->EntityId)
+		{
+			throw new \Aurora\System\Exceptions\ApiException(\Aurora\System\Notifications::InvalidInputParameter);
+		}
+		$oAlias = $this->getManager('Aliases')->getAlias((int) $EntityId);
+		if ($oAlias instanceof \Aurora\Modules\CpanelIntegrator\Classes\Alias
+			&& $oAlias->IdUser === $oUser->EntityId
+		)
+		{
+			$oAlias->FriendlyName = $FriendlyName;
+			$bResult = $this->getManager('Aliases')->updateAlias($oAlias);
+		}
+
+		return $bResult;
+	}
+
 	/**
 	 * Deletes aliases with specified emails.
 	 * @param int $UserId User identifier
@@ -1544,8 +1691,12 @@ class Module extends \Aurora\System\Module\AbstractModule
 		
 		$oUser = \Aurora\Modules\Core\Module::Decorator()->GetUserUnchecked($UserId);
 		$bUserFound = $oUser instanceof \Aurora\Modules\Core\Classes\User;
-		
-		if ($bUserFound && $oAuthenticatedUser->Role === \Aurora\System\Enums\UserRole::TenantAdmin && $oUser->IdTenant === $oAuthenticatedUser->IdTenant)
+
+		if ($bUserFound && $oAuthenticatedUser->Role === \Aurora\System\Enums\UserRole::NormalUser && $oUser->EntityId === $oAuthenticatedUser->EntityId)
+		{
+			\Aurora\System\Api::checkUserRoleIsAtLeast(\Aurora\System\Enums\UserRole::NormalUser);
+		}
+		else if ($bUserFound && $oAuthenticatedUser->Role === \Aurora\System\Enums\UserRole::TenantAdmin && $oUser->IdTenant === $oAuthenticatedUser->IdTenant)
 		{
 			\Aurora\System\Api::checkUserRoleIsAtLeast(\Aurora\System\Enums\UserRole::TenantAdmin);
 		}
@@ -1566,9 +1717,64 @@ class Module extends \Aurora\System\Module\AbstractModule
 				$AliasName = isset($aMatches[1]) ? $aMatches[1] : '';
 				$AliasDomain = isset($aMatches[2]) ? $aMatches[2] : '';
 				$bResult = $this->deleteForwarder($AliasName . '@' . $AliasDomain, $oAccount->Email, $oUser->IdTenant);
+				if ($bResult)
+				{
+					$oAlias = $this->getManager('Aliases')->getUserAliasByEmail($oUser->EntityId, $AliasName . '@' . $AliasDomain);
+					if ($oAlias instanceof \Aurora\Modules\CpanelIntegrator\Classes\Alias)
+					{
+						$this->getManager('Aliases')->deleteAlias($oAlias);
+					}
+				}
 			}
 		}
 		
 		return $bResult;
+	}
+
+	public function UpdateSignature($UserId, $AliasId = null, $UseSignature = null, $Signature = null)
+	{
+		\Aurora\System\Api::checkUserRoleIsAtLeast(\Aurora\System\Enums\UserRole::NormalUser);
+
+		$bResult = false;
+		$oUser = \Aurora\System\Api::getAuthenticatedUser();
+		if ($oUser->EntityId === $UserId)
+		{
+			$oAlias = $this->getManager('Aliases')->getAlias((int) $AliasId);
+			if ($oAlias instanceof \Aurora\Modules\CpanelIntegrator\Classes\Alias && $oAlias->IdUser === $oUser->EntityId)
+			{
+				$oAlias->UseSignature = $UseSignature;
+				$oAlias->Signature = $Signature;
+				$bResult = $this->getManager('Aliases')->updateAlias($oAlias);
+			}
+		}
+
+		return $bResult;
+	}
+
+	protected function getAliasesFromForwarders($aForwarders)
+	{
+		$aResult = [];
+		$oCpanel = $this->getCpanel();
+		if ($oCpanel)
+		{
+			$sCpanelResponse = $this->executeCpanelAction($oCpanel, 'Email', 'list_pops', []);
+			$aParseResult = self::parseResponse($sCpanelResponse);
+			if ($aParseResult && isset($aParseResult['Data']))
+			{
+				$aEmailAccountsOnCPanel = array_map(function($oAccount) {
+					return $oAccount->email;
+				}, $aParseResult['Data']);
+				foreach ($aForwarders as &$oForwarder)
+				{
+					//if 'dest' is the email address of the real account, it is not an alias
+					if (!in_array($oForwarder->dest, $aEmailAccountsOnCPanel))
+					{
+						$aResult[] = $oForwarder;
+					}
+				}
+			}
+		}
+
+		return $aResult;
 	}
 }
