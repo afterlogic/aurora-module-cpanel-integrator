@@ -861,7 +861,7 @@ class Module extends \Aurora\System\Module\AbstractModule
 			$sCpanelResponse = $this->executeCpanelAction($oCpanel, 'Email', 'list_forwarders',
 				[
 					'domain' => $sDomain,
-					'regex' => $sEmail
+					'regex' => '^' . $sEmail . '$'
 				]
 			);
 			$aParseResult = self::parseResponse($sCpanelResponse); // throws exception in case if error has occured
@@ -1573,7 +1573,7 @@ class Module extends \Aurora\System\Module\AbstractModule
 		
 		$oMailDecorator = \Aurora\System\Api::GetModuleDecorator('Mail');
 		$oAccount = $bUserFound && $oMailDecorator ? $oMailDecorator->GetAccountByEmail($oUser->PublicId, $oUser->EntityId) : null;
-		$aServerDomainsByTenant = $oMailDecorator->GetServerDomains($oAccount->ServerId, $oUser->IdTenant);
+		$aServerDomainsByTenant = $oMailDecorator ? $oMailDecorator->GetServerDomains($oAccount->ServerId, $oUser->IdTenant) : [];
 		//AliasDomain must be in the tenant’s domain list
 		if (!in_array($AliasDomain, $aServerDomainsByTenant))
 		{
@@ -1616,12 +1616,31 @@ class Module extends \Aurora\System\Module\AbstractModule
 		{
 			$sEmail = $oAccount->Email;
 			$sDomain = \MailSo\Base\Utils::GetDomainFromEmail($oAccount->Email);
+			$aServerDomainsByTenant = $oMailDecorator ?$oMailDecorator->GetServerDomains($oAccount->ServerId, $oUser->IdTenant) : [];
+			//Get forwarders for all supported domains
+			$aForwarders = [];
+			foreach ($aServerDomainsByTenant as $sServerDomain)
+			{
+				$aForwarders = array_merge($aForwarders, $this->getDomainForwarders($sEmail, $sServerDomain, $oUser->IdTenant));
+			}
+			$aDomainAliases = $this->getAliasesFromForwarders($aForwarders);
+			$aUserAliases = [];
+			foreach ($aDomainAliases as $oAlias)
+			{
+				$sToEmail = $oAlias->forward;
+				if ($sToEmail === $sEmail)
+				{
+					$aUserAliases[] = $oAlias;
+				}
+			}
 			$aArgs = [
 				'TenantId' => $oUser->IdTenant,
-				'Forwarders' => $this->getDomainForwarders($sEmail, $sDomain, $oUser->IdTenant),
+				'DomainAliases' => $aDomainAliases,
+				'UserAliases' => $aUserAliases,
 				'AliasName' => $AliasName,
 				'AliasDomain' => $AliasDomain,
-				'ToEmail' => $oAccount->Email
+				'ToEmail' => $oAccount->Email,
+				'UserId' => $oUser->EntityId
 			];
 			$this->broadcastEvent(
 				'CreateAlias::before', 
