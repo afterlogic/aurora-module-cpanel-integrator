@@ -52,6 +52,8 @@ class Module extends \Aurora\System\Module\AbstractModule
 		$this->subscribeEvent('Mail::GetFilters::before', array($this, 'onBeforeGetFilters'));
 		$this->subscribeEvent('Mail::UpdateFilters::before', array($this, 'onBeforeUpdateFilters'));
 		$this->subscribeEvent('Mail::UpdateQuota', array($this, 'onUpdateQuota'));
+		$this->subscribeEvent('Mail::SaveMessage::before', array($this, 'onBeforeSendOrSaveMessage'));
+		$this->subscribeEvent('Mail::SendMessage::before', array($this, 'onBeforeSendOrSaveMessage'));
 		
 		$this->subscribeEvent('AdminPanelWebclient::DeleteEntities::before', array($this, 'onBeforeDeleteEntities'));/** @deprecated since version 8.3.7 **/
 		$this->subscribeEvent('Core::DeleteTenant::before', array($this, 'onBeforeDeleteEntities'));
@@ -342,6 +344,19 @@ class Module extends \Aurora\System\Module\AbstractModule
 				]
 			);
 			$mResult = self::parseResponse($sCpanelResponse); // throws exception in case if error has occured
+		}
+	}
+	
+	public function onBeforeSendOrSaveMessage(&$aArgs, &$mResult)
+	{
+		$oUser = \Aurora\System\Api::getAuthenticatedUser();
+		$oAlias = $this->getManager('Aliases')->getAlias((int) $aArgs['AliasID']);
+		if ($oAlias instanceof \Aurora\Modules\CpanelIntegrator\Classes\Alias
+			&& $oUser instanceof \Aurora\Modules\Core\Classes\User
+			&& $oAlias->IdUser === $oUser->EntityId
+		)
+		{
+			$aArgs['Alias'] = $oAlias;
 		}
 	}
 	
