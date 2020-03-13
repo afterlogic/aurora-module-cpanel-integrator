@@ -1565,10 +1565,11 @@ class Module extends \Aurora\System\Module\AbstractModule
 	 * @param int $UserId User identifier.
 	 * @param string $AliasName Alias name.
 	 * @param string $AliasDomain Alias domain.
-	 * @return boolean
+	 * @return boolean|int
 	 */
 	public function AddNewAlias($UserId, $AliasName, $AliasDomain)
 	{
+		$mResult = false;
 		$oAuthenticatedUser = \Aurora\System\Api::getAuthenticatedUser();
 		
 		$oUser = \Aurora\Modules\Core\Module::Decorator()->GetUserUnchecked($UserId);
@@ -1670,13 +1671,11 @@ class Module extends \Aurora\System\Module\AbstractModule
 				$oAlias->IdAccount = $oAccount->EntityId;
 				$oAlias->Email = $AliasName . '@' . $AliasDomain;
 				$oAlias->ForwardTo = $oAccount->Email;
-				$this->getManager('Aliases')->createAlias($oAlias);
+				$mResult = $this->getManager('Aliases')->createAlias($oAlias);
 			}
-
-			return true;
 		}
-		
-		return false;
+
+		return $mResult;
 	}
 
 	/**
