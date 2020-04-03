@@ -62,6 +62,8 @@ class Module extends \Aurora\System\Module\AbstractModule
 		$this->subscribeEvent('Core::DeleteUsers::before', array($this, 'onBeforeDeleteEntities'));
 		$this->subscribeEvent('Mail::DeleteServer::before', array($this, 'onBeforeDeleteEntities'));
 		$this->subscribeEvent('MailDomains::DeleteDomains::before', array($this, 'onBeforeDeleteEntities'));
+		$this->subscribeEvent('Mail::IsEmailAllowedForCreation::after', array($this, 'onAfterIsEmailAllowedForCreation'));
+
 	}
 
 	public function getManager($sManager)
@@ -723,6 +725,14 @@ class Module extends \Aurora\System\Module\AbstractModule
 			}
 
 			return true; // breaking subscriptions to prevent update in parent module
+		}
+	}
+
+	public function onAfterIsEmailAllowedForCreation($aArgs, &$mResult)
+	{
+		if ($mResult && isset($aArgs['Email']))
+		{
+			$mResult = !$this->isAliasExists($aArgs['Email']);
 		}
 	}
 
