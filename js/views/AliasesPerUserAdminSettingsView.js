@@ -43,6 +43,20 @@ _.extendOwn(CAliasesPerUserAdminSettingsView.prototype, CAbstractSettingsFormVie
 
 CAliasesPerUserAdminSettingsView.prototype.ViewTemplate = '%ModuleName%_AliasesPerUserAdminSettingsView';
 
+CAliasesPerUserAdminSettingsView.prototype.getCurrentValues = function()
+{
+	return [
+		this.aliasName(),
+		this.domain()
+	];
+};
+
+CAliasesPerUserAdminSettingsView.prototype.revertGlobalValues = function()
+{
+	this.aliasName('');
+	this.domain('');
+};
+
 /**
  * Runs after routing to this view.
  */
