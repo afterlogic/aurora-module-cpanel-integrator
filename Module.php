@@ -312,16 +312,38 @@ class Module extends \Aurora\System\Module\AbstractModule
 				$this->deleteAutoresponder($oAccount->Email);
 
 				$oSettings = $this->GetModuleSettings();
-				if ($oSettings->GetValue('AllowCreateDeleteAccountOnCpanel', false) && self::$bAllowDeleteFromMailServerIfPossible)
+				//Checking if an account exists on CPanel
+				$oCpanel = $this->getCpanel();
+				if ($oCpanel)
 				{
-					$oCpanel = $this->getCpanel($oUser->IdTenant);
-					$sCpanelResponse = $this->executeCpanelAction($oCpanel, 'Email', 'delete_pop',
-						[
-							'email' => $oAccount->Email,
-							'domain' => $sDomain,
-						]
+					$sCpanelResponse = $this->executeCpanelAction(
+						$oCpanel,
+						'Email',
+						'list_pops',
+						['regex' => $oAccount->Email]
 					);
-					self::parseResponse($sCpanelResponse); // throws exception in case if error has occured
+					$aParseResult = self::parseResponse($sCpanelResponse);
+					//Trying to delete an Account only if it exists on CPanel
+					if (
+						$aParseResult
+						&& isset($aParseResult['Data'])
+						&& is_array($aParseResult['Data'])
+						&& count($aParseResult['Data']) > 0
+						&& $oSettings->GetValue('AllowCreateDeleteAccountOnCpanel', false)
+						&& self::$bAllowDeleteFromMailServerIfPossible
+					)
+					{
+						$sCpanelResponse = $this->executeCpanelAction(
+							$oCpanel,
+							'Email',
+							'delete_pop',
+							[
+								'email' => $oAccount->Email,
+								'domain' => $sDomain,
+							]
+						);
+						self::parseResponse($sCpanelResponse); // throws exception in case if error has occured
+					}
 				}
 			}
 		}
