@@ -75,7 +75,7 @@ class Aliases extends \Aurora\System\Managers\AbstractManager
 	 */
 	public function deleteAlias(\Aurora\Modules\CpanelIntegrator\Classes\Alias $oAlias)
 	{
-		$bResult = $this->oEavManager->deleteEntity($oAlias->EntityId);
+		$bResult = $this->oEavManager->deleteEntity($oAlias->EntityId, \Aurora\Modules\CpanelIntegrator\Classes\Alias::class);
 
 		return $bResult;
 	}
