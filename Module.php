@@ -1574,13 +1574,18 @@ class Module extends \Aurora\System\Module\AbstractModule
 				{
 					if (!in_array($sForwarderFromEmail, $aAliasesEmail))
 					{
-						//create eav-alias if doesn't exists
-						$oAlias = new \Aurora\Modules\CpanelIntegrator\Classes\Alias(self::GetName());
-						$oAlias->IdUser = $oUser->EntityId;
-						$oAlias->IdAccount = $oAccount->EntityId;
-						$oAlias->Email = $sForwarderFromEmail;
-						$oAlias->ForwardTo = $oAccount->Email;
-						$this->getManager('Aliases')->createAlias($oAlias);
+						//Check if an alias exists in EAV
+						$aAliasesCheck = $this->getManager('Aliases')->getAliases(0, 0, ['Email' => $sForwarderFromEmail]);
+						if (empty($aAliasesCheck))
+						{
+							//create eav-alias if doesn't exists
+							$oAlias = new \Aurora\Modules\CpanelIntegrator\Classes\Alias(self::GetName());
+							$oAlias->IdUser = $oUser->EntityId;
+							$oAlias->IdAccount = $oAccount->EntityId;
+							$oAlias->Email = $sForwarderFromEmail;
+							$oAlias->ForwardTo = $oAccount->Email;
+							$this->getManager('Aliases')->createAlias($oAlias);
+						}
 					}
 				}
 				$aAliases = $this->getManager('Aliases')->getAliasesByUserId($oUser->EntityId);
@@ -1657,8 +1662,8 @@ class Module extends \Aurora\System\Module\AbstractModule
 			throw new \Aurora\System\Exceptions\ApiException(Enums\ErrorCodes::AliasAlreadyExists);
 		}
 		//Check if an alias exists in EAV
-		$oAliases = $this->getManager('Aliases')->getAliases(0, 0, ['Email' => $AliasName . '@' . $AliasDomain]);
-		if (!empty($oAliases))
+		$aAliases = $this->getManager('Aliases')->getAliases(0, 0, ['Email' => $AliasName . '@' . $AliasDomain]);
+		if (!empty($aAliases))
 		{
 			throw new \Aurora\System\Exceptions\ApiException(Enums\ErrorCodes::AliasAlreadyExists);
 		}
