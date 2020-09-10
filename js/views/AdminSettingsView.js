@@ -53,12 +53,17 @@ _.extendOwn(СAdminSettingsView.prototype, CAbstractSettingsFormView.prototype);
 
 СAdminSettingsView.prototype.getParametersForSave = function ()
 {
-	return {
+	var oParameters = {
 		'CpanelHost': this.host(),
 		'CpanelPort': this.port(),
 		'CpanelUser': this.user(),
 		'CpanelPassword': this.pass() !== this.sFakePass ? this.pass() : ''
 	};
+	if (Types.isPositiveNumber(this.iTenantId)) // cPanel settings tab is shown for particular tenant
+	{
+		oParameters.TenantId = this.iTenantId;
+	}
+	return oParameters;
 };
 
 /**
