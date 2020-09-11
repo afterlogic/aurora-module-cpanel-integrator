@@ -84,8 +84,8 @@ class Module extends \Aurora\System\Module\AbstractModule
 	 */
 	protected function getCpanel($iTenantId = 0)
 	{
-		if (!$this->oCpanel)
-		{
+		// if (!$this->oCpanel)
+		// {
 			$sHost = $this->getConfig('CpanelHost', '');
 			$sPort = $this->getConfig('CpanelPort', '');
 			$sUser = $this->getConfig('CpanelUser', '');
@@ -110,7 +110,7 @@ class Module extends \Aurora\System\Module\AbstractModule
 			]);
 
 			$this->oCpanel->setTimeout(30);
-		}
+		// }
 
 		return $this->oCpanel;
 	}
