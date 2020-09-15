@@ -1588,6 +1588,13 @@ class Module extends \Aurora\System\Module\AbstractModule
 						}
 					}
 				}
+				foreach ($aAliases as $oAlias)
+				{
+					if (!in_array($oAlias->Email, $aForwardersFromEmail))
+					{
+						$this->getManager('Aliases')->deleteAlias($oAlias);
+					}
+				}
 				$aAliases = $this->getManager('Aliases')->getAliasesByUserId($oUser->EntityId);
 			}
 
@@ -1610,6 +1617,7 @@ class Module extends \Aurora\System\Module\AbstractModule
 	 */
 	public function AddNewAlias($UserId, $AliasName, $AliasDomain)
 	{
+		$AliasName = strtolower($AliasName); // cPanel creates an alias with a lowercase name.
 		$mResult = false;
 		$oAuthenticatedUser = \Aurora\System\Api::getAuthenticatedUser();
 
