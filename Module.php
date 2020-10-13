@@ -715,43 +715,40 @@ class Module extends \Aurora\System\Module\AbstractModule
 				// check if account belongs to authenticated user
 				&& $oAccount->IdUser === $oAuthenticatedUser->EntityId)
 			{
-				if ($oCpanel)
+				$oCpanel = $this->getCpanel($oAuthenticatedUser->IdTenant);
+				if ($oCpanel && $this->removeSupportedFilters($oAccount, $oAuthenticatedUser->IdTenant))
 				{
-					$oCpanel = $this->getCpanel($oAuthenticatedUser->IdTenant);
-					if ($this->removeSupportedFilters($oAccount, $oAuthenticatedUser->IdTenant))
+					if (count($aArgs['Filters']) === 0)
 					{
-						if (count($aArgs['Filters']) === 0)
+						$mResult = true;
+					}
+					else
+					{
+						foreach ($aArgs['Filters'] as $aWebmailFilter)
 						{
-							$mResult = true;
-						}
-						else
-						{
-							foreach ($aArgs['Filters'] as $aWebmailFilter)
+							$aFilterProperty = self::convertWebmailFIlterToCPanelFIlter($aWebmailFilter, $oAccount);
+							//create filter
+							$sCpanelResponse = $this->executeCpanelAction($oCpanel, 'Email', 'store_filter',
+								$aFilterProperty
+							);
+							$aCreationResult = self::parseResponse($sCpanelResponse); // throws exception in case if error has occured
+							//disable filter if needed
+							if (!$aCreationResult['Status'])
 							{
-								$aFilterProperty = self::convertWebmailFIlterToCPanelFIlter($aWebmailFilter, $oAccount);
-								//create filter
-								$sCpanelResponse = $this->executeCpanelAction($oCpanel, 'Email', 'store_filter',
-									$aFilterProperty
-								);
-								$aCreationResult = self::parseResponse($sCpanelResponse); // throws exception in case if error has occured
-								//disable filter if needed
-								if (!$aCreationResult['Status'])
-								{
-									$mResult = false;
-									break;
-								}
-								if (!$aWebmailFilter['Enable'])
-								{
-									$sCpanelResponse = $this->executeCpanelAction($oCpanel, 'Email', 'disable_filter',
-										[
-											'account' => $oAccount->Email,
-											'filtername' => $aFilterProperty['filtername']
-										]
-									);
-									self::parseResponse($sCpanelResponse); // throws exception in case if error has occured
-								}
-								$mResult = true;
+								$mResult = false;
+								break;
 							}
+							if (!$aWebmailFilter['Enable'])
+							{
+								$sCpanelResponse = $this->executeCpanelAction($oCpanel, 'Email', 'disable_filter',
+									[
+										'account' => $oAccount->Email,
+										'filtername' => $aFilterProperty['filtername']
+									]
+								);
+								self::parseResponse($sCpanelResponse); // throws exception in case if error has occured
+							}
+							$mResult = true;
 						}
 					}
 				}
