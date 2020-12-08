@@ -832,6 +832,15 @@ class Module extends \Aurora\System\Module\AbstractModule
 			$cpanel_user = $this->getConfig('CpanelUser', '');
 			$cpanel_pass = $this->getConfig('CpanelPassword', '');
 			$cpanel_user0 = null;
+			
+			$oUser = \Aurora\System\Api::getUserById($oAccount->IdUser);
+			$oTenant = $oUser instanceof \Aurora\Modules\Core\Classes\User ? \Aurora\System\Api::getTenantById($oUser->IdTenant) : null;
+			if ($oTenant instanceof \Aurora\Modules\Core\Classes\Tenant)
+			{
+				$cpanel_host = $this->oModuleSettings->GetTenantValue($oTenant->Name, 'CpanelHost', '');
+				$cpanel_user = $this->oModuleSettings->GetTenantValue($oTenant->Name, 'CpanelUser', '');
+				$cpanel_pass = $this->oModuleSettings->GetTenantValue($oTenant->Name, 'CpanelPassword', '');
+			}
 
 			$email_user = urlencode($oAccount->Email);
 			$email_pass = urlencode($sPassword);
