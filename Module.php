@@ -940,16 +940,23 @@ class Module extends \Aurora\System\Module\AbstractModule
 				]
 			);
 			$aParseResult = self::parseResponse($sCpanelResponse); // throws exception in case if error has occured
-
+			$sForwardScriptPath = $this->getConfig('ForwardScriptPath', '');
 			if ($aParseResult
 				&& isset($aParseResult['Data'])
 				&& is_array($aParseResult['Data'])
-				&& isset($aParseResult['Data'][0])
+				&& count($aParseResult['Data'] > 0)
 			)
 			{
-				$aResult = [
-					'Email' => $aParseResult['Data'][0]->forward
-				];
+				foreach ($aParseResult['Data'] as $oData)
+				{
+					if ($oData->forward !== '|'.$sForwardScriptPath)
+					{
+						$aResult = [
+							'Email' => $oData->forward
+						];
+						break;
+					}
+				}
 			}
 		}
 
@@ -1891,5 +1898,138 @@ class Module extends \Aurora\System\Module\AbstractModule
 		$bAliasExists = is_array($aResult) && isset($aResult['Email']) && !empty($aResult['Email']);
 
 		return $bAliasExists;
+	}
+
+	public function GetScriptForward($AccountID)
+	{
+		$aResult = [];
+
+		$oAuthenticatedUser = \Aurora\System\Api::getAuthenticatedUser();
+		$oAccount = \Aurora\System\Api::GetModule('Mail')->GetAccount($AccountID);
+		if ($oAccount instanceof \Aurora\Modules\Mail\Classes\Account && $this->isAccountServerSupported($oAccount))
+		{
+			if ($oAuthenticatedUser instanceof \Aurora\Modules\Core\Classes\User
+			// check if account belongs to authenticated user
+			&& ($oAccount->IdUser === $oAuthenticatedUser->EntityId
+			|| $oAuthenticatedUser->Role === \Aurora\System\Enums\UserRole::SuperAdmin
+			|| $oAuthenticatedUser->Role === \Aurora\System\Enums\UserRole::TenantAdmin))
+			{
+				$oCpanel = null;
+				$oUser = \Aurora\Modules\Core\Module::Decorator()->GetUserUnchecked($oAccount->IdUser);
+				if ($oUser instanceof \Aurora\Modules\Core\Classes\User)
+				{
+					$oCpanel = $this->getCpanel($oUser->IdTenant);
+					$sEmail = $oAccount->Email;
+					$sDomain = \MailSo\Base\Utils::GetDomainFromEmail($oUser->PublicId);
+					$sForwardScriptPath = $this->getConfig('ForwardScriptPath', '');
+					if ($oCpanel && $sDomain && $sEmail && !empty($sForwardScriptPath))
+					{
+						$sCpanelResponse = $this->executeCpanelAction($oCpanel, 'Email', 'list_forwarders',
+							[
+								'domain' => $sDomain,
+								'regex' => '^' . $sEmail . '$'
+							]
+						);
+						$aParseResult = self::parseResponse($sCpanelResponse); // throws exception in case if error has occured
+						$sForwardScriptPath = $this->getConfig('ForwardScriptPath', '');
+						if ($aParseResult
+							&& isset($aParseResult['Data'])
+							&& is_array($aParseResult['Data'])
+							&& count($aParseResult['Data'] > 0)
+						)
+						{
+							foreach ($aParseResult['Data'] as $oData)
+							{
+								if ($oData->forward === '|'.$sForwardScriptPath)
+								{
+									$aResult = [
+										'Email' => $oData->forward
+									];
+									break;
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+
+		return $aResult;
+	}
+
+	public function CreateScriptForward($AccountID)
+	{
+		$oAuthenticatedUser = \Aurora\System\Api::getAuthenticatedUser();
+		$oAccount = \Aurora\System\Api::GetModule('Mail')->GetAccount($AccountID);
+		if ($oAccount instanceof \Aurora\Modules\Mail\Classes\Account && $this->isAccountServerSupported($oAccount))
+		{
+			if ($oAuthenticatedUser instanceof \Aurora\Modules\Core\Classes\User
+			// check if account belongs to authenticated user
+			&& ($oAccount->IdUser === $oAuthenticatedUser->EntityId
+			|| $oAuthenticatedUser->Role === \Aurora\System\Enums\UserRole::SuperAdmin
+			|| $oAuthenticatedUser->Role === \Aurora\System\Enums\UserRole::TenantAdmin))
+			{
+				$oCpanel = null;
+				$oUser = \Aurora\Modules\Core\Module::Decorator()->GetUserUnchecked($oAccount->IdUser);
+				if ($oUser instanceof \Aurora\Modules\Core\Classes\User)
+				{
+					$oCpanel = $this->getCpanel($oUser->IdTenant);
+					$sDomain = \MailSo\Base\Utils::GetDomainFromEmail($oUser->PublicId);
+					$sForwardScriptPath = $this->getConfig('ForwardScriptPath', '');
+					if ($oCpanel && $sDomain && $sEmail && !empty($sForwardScriptPath))
+					{
+						$sCpanelResponse = $this->executeCpanelAction($oCpanel, 'Email', 'add_forwarder',
+							[
+								'domain' => $sDomain,
+								'email' => $sEmail,
+								'fwdopt' => 'pipe',
+								'pipefwd' => $sForwardScriptPath
+							]
+						);
+						self::parseResponse($sCpanelResponse); // throws exception in case if error has occured
+						return true;
+					}
+				}
+			}
+		}
+
+		return false;
+	}
+
+	public function RemoveScriptForward($AccountID)
+	{
+		$bResult = false;
+		$oAuthenticatedUser = \Aurora\System\Api::getAuthenticatedUser();
+		$oAccount = \Aurora\System\Api::GetModule('Mail')->GetAccount($AccountID);
+		if ($oAccount instanceof \Aurora\Modules\Mail\Classes\Account && $this->isAccountServerSupported($oAccount))
+		{
+			if ($oAuthenticatedUser instanceof \Aurora\Modules\Core\Classes\User
+			// check if account belongs to authenticated user
+			&& ($oAccount->IdUser === $oAuthenticatedUser->EntityId
+			|| $oAuthenticatedUser->Role === \Aurora\System\Enums\UserRole::SuperAdmin
+			|| $oAuthenticatedUser->Role === \Aurora\System\Enums\UserRole::TenantAdmin))
+			{
+				$sFromEmail = $oAccount->Email;
+				$oUser = \Aurora\Modules\Core\Module::Decorator()->GetUserUnchecked($oAccount->IdUser);
+				if ($oUser instanceof \Aurora\Modules\Core\Classes\User)
+				{
+					$sForwardScriptPath = $this->getConfig('ForwardScriptPath', '');
+					if (!empty($sForwardScriptPath))
+					{
+						try
+						{
+							$this->deleteForwarder($sFromEmail, '|' . $sForwardScriptPath, $oUser->IdTenant);
+							$bResult = true;
+						}
+						catch (\Exception $oEx)
+						{
+							$bResult = false;
+						}
+					}
+				}
+			}
+		}
+
+		return $bResult;
 	}
 }
