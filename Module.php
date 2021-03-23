@@ -1332,6 +1332,13 @@ class Module extends \Aurora\System\Module\AbstractModule
 				}
 			}
 
+			$sDestEmail = "";
+			if ($oCPanelFilter->actions[0]->action === 'deliver')
+			{
+				$sDestEmail = $oCPanelFilter->actions[0]->dest;
+				$iAction =\Aurora\Modules\Mail\Enums\FilterAction::Redirect;
+			}
+
 			switch ($oCPanelFilter->rules[0]->match)
 			{
 				case 'contains':
@@ -1369,7 +1376,7 @@ class Module extends \Aurora\System\Module\AbstractModule
 			}
 
 			if (isset($iAction) && isset($iCondition) && isset($iField)
-				&& (!empty($sFolderFullName) || $iAction === \Aurora\Modules\Mail\Enums\FilterAction::DeleteFromServerImmediately)
+				&& (!empty($sFolderFullName) || $iAction === \Aurora\Modules\Mail\Enums\FilterAction::DeleteFromServerImmediately || $iAction === \Aurora\Modules\Mail\Enums\FilterAction::Redirect)
 			)
 			{
 				$aResult[] = [
@@ -1379,7 +1386,8 @@ class Module extends \Aurora\System\Module\AbstractModule
 					'Field' => $iField,
 					'Filter' => $oCPanelFilter->rules[0]->val,
 					'FolderFullName' => $iAction === \Aurora\Modules\Mail\Enums\FilterAction::DeleteFromServerImmediately ? '' : $sFolderFullName,
-					'Filtername' => $oCPanelFilter->filtername
+					'Filtername' => $oCPanelFilter->filtername,
+					'Email' => $sDestEmail
 				];
 			}
 		}
@@ -1409,7 +1417,11 @@ class Module extends \Aurora\System\Module\AbstractModule
 			case \Aurora\Modules\Mail\Enums\FilterAction::MoveToFolder:
 				$sAction = 'save';
 				break;
-		}
+			case \Aurora\Modules\Mail\Enums\FilterAction::Redirect:
+				$sAction = 'deliver';
+				$sDest = isset($aWebmailFilter['Email']) ? $aWebmailFilter['Email'] : $sDest;
+				break;
+			}
 
 		switch ($aWebmailFilter["Condition"])
 		{
