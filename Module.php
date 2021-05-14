@@ -1947,7 +1947,7 @@ class Module extends \Aurora\System\Module\AbstractModule
 						if ($aParseResult
 							&& isset($aParseResult['Data'])
 							&& is_array($aParseResult['Data'])
-							&& count($aParseResult['Data'] > 0)
+							&& count($aParseResult['Data']) > 0
 						)
 						{
 							foreach ($aParseResult['Data'] as $oData)
@@ -1961,6 +1961,10 @@ class Module extends \Aurora\System\Module\AbstractModule
 								}
 							}
 						}
+					}
+					else
+					{
+						throw new \Aurora\System\Exceptions\ApiException(\Aurora\System\Exceptions\Errs::Validation_InvalidParameters);
 					}
 				}
 			}
@@ -1986,6 +1990,7 @@ class Module extends \Aurora\System\Module\AbstractModule
 				if ($oUser instanceof \Aurora\Modules\Core\Classes\User)
 				{
 					$oCpanel = $this->getCpanel($oUser->IdTenant);
+					$sEmail = $oAccount->Email;
 					$sDomain = \MailSo\Base\Utils::GetDomainFromEmail($oUser->PublicId);
 					$sForwardScriptPath = $this->getConfig('ForwardScriptPath', '');
 					if ($oCpanel && $sDomain && $sEmail && !empty($sForwardScriptPath))
@@ -2000,6 +2005,10 @@ class Module extends \Aurora\System\Module\AbstractModule
 						);
 						self::parseResponse($sCpanelResponse); // throws exception in case if error has occured
 						return true;
+					}
+					else
+					{
+						throw new \Aurora\System\Exceptions\ApiException(\Aurora\System\Exceptions\Errs::Validation_InvalidParameters);
 					}
 				}
 			}
