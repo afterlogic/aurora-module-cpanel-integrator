@@ -1992,7 +1992,8 @@ class Module extends \Aurora\System\Module\AbstractModule
 					$oCpanel = $this->getCpanel($oUser->IdTenant);
 					$sEmail = $oAccount->Email;
 					$sDomain = \MailSo\Base\Utils::GetDomainFromEmail($oUser->PublicId);
-					$sForwardScriptPath = $this->getConfig('ForwardScriptPath', '');
+					$sForwardScriptPath = $this->getConfig('ForwardScriptPath', \dirname(__FILE__) . DIRECTORY_SEPARATOR . 'scripts' . DIRECTORY_SEPARATOR . 'mail_process.php');
+
 					if ($oCpanel && $sDomain && $sEmail && !empty($sForwardScriptPath))
 					{
 						$sCpanelResponse = $this->executeCpanelAction($oCpanel, 'Email', 'add_forwarder',
