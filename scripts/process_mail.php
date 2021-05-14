@@ -3,7 +3,7 @@
 
 if (PHP_SAPI !== 'cli')
 {
-//    exit("Use console");
+    exit("Use console");
 }
 
 require_once \dirname(__FILE__) . '/../../../system/autoload.php';
