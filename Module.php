@@ -940,11 +940,11 @@ class Module extends \Aurora\System\Module\AbstractModule
 				]
 			);
 			$aParseResult = self::parseResponse($sCpanelResponse); // throws exception in case if error has occured
-			$sForwardScriptPath = $this->getConfig('ForwardScriptPath', '');
+			$sForwardScriptPath = $this->getConfig('ForwardScriptPath', \dirname(__FILE__) . DIRECTORY_SEPARATOR . 'scripts' . DIRECTORY_SEPARATOR . 'process_mail.php');
 			if ($aParseResult
 				&& isset($aParseResult['Data'])
 				&& is_array($aParseResult['Data'])
-				&& count($aParseResult['Data'] > 0)
+				&& count($aParseResult['Data']) > 0
 			)
 			{
 				foreach ($aParseResult['Data'] as $oData)
@@ -1933,7 +1933,7 @@ class Module extends \Aurora\System\Module\AbstractModule
 					$oCpanel = $this->getCpanel($oUser->IdTenant);
 					$sEmail = $oAccount->Email;
 					$sDomain = \MailSo\Base\Utils::GetDomainFromEmail($oUser->PublicId);
-					$sForwardScriptPath = $this->getConfig('ForwardScriptPath', '');
+					$sForwardScriptPath = $this->getConfig('ForwardScriptPath', \dirname(__FILE__) . DIRECTORY_SEPARATOR . 'scripts' . DIRECTORY_SEPARATOR . 'process_mail.php');
 					if ($oCpanel && $sDomain && $sEmail && !empty($sForwardScriptPath))
 					{
 						$sCpanelResponse = $this->executeCpanelAction($oCpanel, 'Email', 'list_forwarders',
@@ -1943,7 +1943,6 @@ class Module extends \Aurora\System\Module\AbstractModule
 							]
 						);
 						$aParseResult = self::parseResponse($sCpanelResponse); // throws exception in case if error has occured
-						$sForwardScriptPath = $this->getConfig('ForwardScriptPath', '');
 						if ($aParseResult
 							&& isset($aParseResult['Data'])
 							&& is_array($aParseResult['Data'])
@@ -1992,7 +1991,7 @@ class Module extends \Aurora\System\Module\AbstractModule
 					$oCpanel = $this->getCpanel($oUser->IdTenant);
 					$sEmail = $oAccount->Email;
 					$sDomain = \MailSo\Base\Utils::GetDomainFromEmail($oUser->PublicId);
-					$sForwardScriptPath = $this->getConfig('ForwardScriptPath', \dirname(__FILE__) . DIRECTORY_SEPARATOR . 'scripts' . DIRECTORY_SEPARATOR . 'mail_process.php');
+					$sForwardScriptPath = $this->getConfig('ForwardScriptPath', \dirname(__FILE__) . DIRECTORY_SEPARATOR . 'scripts' . DIRECTORY_SEPARATOR . 'process_mail.php');
 
 					if ($oCpanel && $sDomain && $sEmail && !empty($sForwardScriptPath))
 					{
@@ -2035,7 +2034,7 @@ class Module extends \Aurora\System\Module\AbstractModule
 				$oUser = \Aurora\Modules\Core\Module::Decorator()->GetUserUnchecked($oAccount->IdUser);
 				if ($oUser instanceof \Aurora\Modules\Core\Classes\User)
 				{
-					$sForwardScriptPath = $this->getConfig('ForwardScriptPath', '');
+					$sForwardScriptPath = $this->getConfig('ForwardScriptPath', \dirname(__FILE__) . DIRECTORY_SEPARATOR . 'scripts' . DIRECTORY_SEPARATOR . 'process_mail.php');
 					if (!empty($sForwardScriptPath))
 					{
 						try
