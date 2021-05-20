@@ -1,6 +1,5 @@
 #!/usr/local/bin/php
 <?php
-
 if (PHP_SAPI !== 'cli')
 {
     exit("Use console");
@@ -16,6 +15,7 @@ $headers = "";
 
 if ($fd)
 {
+    $sRawHeaders = '';
     while (trim($line = fgets($fd)) !== '')
     {
         $sRawHeaders .= $line;
@@ -65,7 +65,18 @@ if ($fd)
         {
             if (null !== $sName)
             {
-                $aResult[$sName] = $sValue;
+                if (isset($aResult[$sName]))
+                {
+                    if (!is_array($aResult[$sName]))
+                    {
+                        $aResult[$sName] = [$aResult[$sName]];
+                    }
+                    $aResult[$sName][] = $sValue;
+                }
+                else
+                {
+                    $aResult[$sName] = $sValue;
+                }
 
                 $sName = null;
                 $sValue = null;
@@ -85,16 +96,47 @@ if ($fd)
     {
         $aResult[$sName] = $sValue;
     }
-
     \Aurora\System\Api::Log(\json_encode($aResult), \Aurora\System\Enums\LogLevel::Full, 'push-');
 
     $isSpam = isset($aResult['X-Spam-Flag']) && $aResult['X-Spam-Flag'] === 'TRUE' ? true : false;
     if (!$isSpam)
     {
-        $sReceivedEmail = '';
-        if (isset($aResult['Received']) && preg_match('/for (.*);|si/', $aResult['Received'], $matches))
+        $sEmail = null;
+        if (isset($aResult['Received']))
         {
-            $sReceivedEmail = \rtrim(\ltrim($matches[1], '<'), '>');
+            $sMatch = null;
+            if (is_array($aResult['Received']))
+            {
+                foreach ($aResult['Received'] as $sReceived)
+                {
+                    if (preg_match('/for (.*);|si/', $sReceived, $matches))
+                    {
+                        $sMatch = $matches[1];
+                        break;
+                    }
+                }
+            }
+            else
+            {
+                if (preg_match('/for (.*);|si/', $aResult['Received'], $matches))
+                {
+                    $sMatch = $matches[1];
+                }
+            }
+            if (isset($sMatch))
+            {
+                $sEmail = \rtrim(\ltrim($matches[1], '<'), '>');
+
+            }
+        }
+        if (!isset($sEmail))
+        {
+            \Aurora\System\Api::Log('"Received" header not found in the mail message. Trying to find "Delivered-To" header.', \Aurora\System\Enums\LogLevel::Full, 'push-');
+
+            if (isset($aResult['Delivered-To']))
+            {
+                $sEmail = \rtrim(\ltrim($aResult['Delivered-To'], '<'), '>');
+            }
         }
         $sFrom = '';
         if (isset($aResult['From']))
@@ -106,25 +148,26 @@ if ($fd)
         {
             $sSubject = \trim($aResult['Subject']);
         }
-        if (empty($sReceivedEmail))
+        if (empty($sEmail))
         {
-            \Aurora\System\Api::Log('"Received" not found in the mail message', \Aurora\System\Enums\LogLevel::Full, 'push-');
+            \Aurora\System\Api::Log('"Delivered-To" header not found in the mail message.', \Aurora\System\Enums\LogLevel::Full, 'push-');
         }
         else if (empty($sFrom))
         {
-            \Aurora\System\Api::Log('"From" not found in the mail message', \Aurora\System\Enums\LogLevel::Full, 'push-');
+            \Aurora\System\Api::Log('"From" not found in the mail message.', \Aurora\System\Enums\LogLevel::Full, 'push-');
         }
         else
         {
             $Secret = \Aurora\System\Api::GetModule('PushNotificator')->getConfig('Secret', '');
             $Data = [
-                'Email' => $sReceivedEmail,
+                'Email' => $sEmail,
                 'Data' => [[
                     'From' => $sFrom,
-                    'To' => $sReceivedEmail,
+                    'To' => $sEmail,
                     'Subject' => $sSubject
                 ]]
             ];
+
             \Aurora\System\Api::Log(\json_encode([$Data]), \Aurora\System\Enums\LogLevel::Full, 'push-');
             \Aurora\Modules\PushNotificator\Module::Decorator()->SendPush($Secret, [$Data]);
         }
