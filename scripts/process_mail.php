@@ -154,22 +154,36 @@ if ($fd)
         }
         else if (empty($sFrom))
         {
-            \Aurora\System\Api::Log('"From" not found in the mail message.', \Aurora\System\Enums\LogLevel::Full, 'push-');
+            \Aurora\System\Api::Log('"From" header not found in the mail message.', \Aurora\System\Enums\LogLevel::Full, 'push-');
         }
         else
         {
-            $Secret = \Aurora\System\Api::GetModule('PushNotificator')->getConfig('Secret', '');
-            $Data = [
-                'Email' => $sEmail,
-                'Data' => [[
-                    'From' => $sFrom,
-                    'To' => $sEmail,
-                    'Subject' => $sSubject
-                ]]
-            ];
+            $sMessageID = null;
+            if (isset($aResult['Message-ID']))
+            {
+                $sMessageID = $aResult['Message-ID'];
+            }
 
-            \Aurora\System\Api::Log(\json_encode([$Data]), \Aurora\System\Enums\LogLevel::Full, 'push-');
-            \Aurora\Modules\PushNotificator\Module::Decorator()->SendPush($Secret, [$Data]);
+            if (isset($sMessageID))
+            {
+                $Secret = \Aurora\System\Api::GetModule('PushNotificator')->getConfig('Secret', '');
+                $Data = [
+                    'Email' => $sEmail,
+                    'Data' => [[
+                        'From' => $sFrom,
+                        'To' => $sEmail,
+                        'Subject' => $sSubject,
+                        'MessageId' => $sMessageID,
+                        'Folder' => 'INBOX'
+                    ]]
+                ];
+                \Aurora\System\Api::Log(\json_encode([$Data]), \Aurora\System\Enums\LogLevel::Full, 'push-');
+                \Aurora\Modules\PushNotificator\Module::Decorator()->SendPush($Secret, [$Data]);
+            }
+            else
+            {
+                \Aurora\System\Api::Log('"Message-ID" header not found in the mail message.', \Aurora\System\Enums\LogLevel::Full, 'push-');
+            }
         }
     }
 }
