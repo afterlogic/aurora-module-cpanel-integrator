@@ -152,38 +152,34 @@ if ($fd)
         {
             \Aurora\System\Api::Log('"Delivered-To" header not found in the mail message.', \Aurora\System\Enums\LogLevel::Full, 'push-');
         }
-        else if (empty($sFrom))
+        else if (empty($sFrom) && empty($sSubject))
         {
-            \Aurora\System\Api::Log('"From" header not found in the mail message.', \Aurora\System\Enums\LogLevel::Full, 'push-');
+            \Aurora\System\Api::Log('"From" and "Subject" headers are not found in the mail message.', \Aurora\System\Enums\LogLevel::Full, 'push-');
         }
         else
         {
-            $sMessageID = null;
+            $Data = [
+                'Email' => $sEmail,
+                'Data' => [[
+                    'From' => $sFrom,
+                    'To' => $sEmail,
+                    'Subject' => $sSubject,
+                    'Folder' => 'INBOX'
+                ]]
+            ];
+
             if (isset($aResult['Message-ID']))
             {
-                $sMessageID = $aResult['Message-ID'];
-            }
-
-            if (isset($sMessageID))
-            {
-                $Secret = \Aurora\System\Api::GetModule('PushNotificator')->getConfig('Secret', '');
-                $Data = [
-                    'Email' => $sEmail,
-                    'Data' => [[
-                        'From' => $sFrom,
-                        'To' => $sEmail,
-                        'Subject' => $sSubject,
-                        'MessageId' => $sMessageID,
-                        'Folder' => 'INBOX'
-                    ]]
-                ];
-                \Aurora\System\Api::Log(\json_encode([$Data]), \Aurora\System\Enums\LogLevel::Full, 'push-');
-                \Aurora\Modules\PushNotificator\Module::Decorator()->SendPush($Secret, [$Data]);
+                $Data['MessageId'] = $aResult['Message-ID'];
             }
             else
             {
                 \Aurora\System\Api::Log('"Message-ID" header not found in the mail message.', \Aurora\System\Enums\LogLevel::Full, 'push-');
             }
+
+            $Secret = \Aurora\System\Api::GetModule('PushNotificator')->getConfig('Secret', '');
+            \Aurora\System\Api::Log(\json_encode([$Data]), \Aurora\System\Enums\LogLevel::Full, 'push-');
+            \Aurora\Modules\PushNotificator\Module::Decorator()->SendPush($Secret, [$Data]);
         }
     }
 }
