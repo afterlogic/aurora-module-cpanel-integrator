@@ -94,8 +94,9 @@ if ($fd)
     }
     if (null !== $sName)
     {
-        $aResult[$sName] = $sValue;
+        $aResult[$sName] = \trim($sValue);
     }
+    \Aurora\System\Api::Log("Message headers", \Aurora\System\Enums\LogLevel::Full, 'push-');
     \Aurora\System\Api::Log(\json_encode($aResult), \Aurora\System\Enums\LogLevel::Full, 'push-');
 
     $isSpam = isset($aResult['X-Spam-Flag']) && $aResult['X-Spam-Flag'] === 'TRUE' ? true : false;
@@ -109,7 +110,7 @@ if ($fd)
             {
                 foreach ($aResult['Received'] as $sReceived)
                 {
-                    if (preg_match('/for (.*);|si/', $sReceived, $matches))
+                    if (preg_match('/for (.*);/si', $sReceived, $matches))
                     {
                         $sMatch = $matches[1];
                         break;
@@ -118,7 +119,7 @@ if ($fd)
             }
             else
             {
-                if (preg_match('/for (.*);|si/', $aResult['Received'], $matches))
+                if (preg_match('/for (.*);/si', $aResult['Received'], $matches))
                 {
                     $sMatch = $matches[1];
                 }
@@ -128,15 +129,17 @@ if ($fd)
                 $sEmail = \rtrim(\ltrim($matches[1], '<'), '>');
 
             }
-        }
+        } else {
+			\Aurora\System\Api::Log('"Received" header is not found.', \Aurora\System\Enums\LogLevel::Full, 'push-');
+		}
         if (!isset($sEmail))
         {
-            \Aurora\System\Api::Log('"Received" header not found in the mail message. Trying to find "Delivered-To" header.', \Aurora\System\Enums\LogLevel::Full, 'push-');
-
             if (isset($aResult['Delivered-To']))
             {
                 $sEmail = \rtrim(\ltrim($aResult['Delivered-To'], '<'), '>');
-            }
+            } else {
+				\Aurora\System\Api::Log('"Delivered-To" header is not found.', \Aurora\System\Enums\LogLevel::Full, 'push-');
+			}
         }
         $sFrom = '';
         if (isset($aResult['From']))
@@ -150,7 +153,7 @@ if ($fd)
         }
         if (empty($sEmail))
         {
-            \Aurora\System\Api::Log('"Delivered-To" header not found in the mail message.', \Aurora\System\Enums\LogLevel::Full, 'push-');
+            \Aurora\System\Api::Log('Recipient address is not found.', \Aurora\System\Enums\LogLevel::Full, 'push-');
         }
         else if (empty($sFrom) && empty($sSubject))
         {
@@ -158,24 +161,26 @@ if ($fd)
         }
         else
         {
-            $Data = [
-                'Email' => $sEmail,
-                'Data' => [[
-                    'From' => $sFrom,
-                    'To' => $sEmail,
-                    'Subject' => $sSubject,
-                    'Folder' => 'INBOX'
-                ]]
+            $aPushMessageData = [
+                'From' => $sFrom,
+                'To' => $sEmail,
+                'Subject' => $sSubject,
+                'Folder' => 'INBOX'
             ];
 
             if (isset($aResult['Message-ID']))
             {
-                $Data['MessageId'] = $aResult['Message-ID'];
+                $aPushMessageData['MessageId'] = \trim($aResult['Message-ID']);
             }
             else
             {
-                \Aurora\System\Api::Log('"Message-ID" header not found in the mail message.', \Aurora\System\Enums\LogLevel::Full, 'push-');
+                \Aurora\System\Api::Log('"Message-ID" header is not found.', \Aurora\System\Enums\LogLevel::Full, 'push-');
             }
+            
+            $Data = [
+                'Email' => $sEmail,
+                'Data' => [$aPushMessageData]
+            ];
 
             $Secret = \Aurora\System\Api::GetModule('PushNotificator')->getConfig('Secret', '');
             \Aurora\System\Api::Log(\json_encode([$Data]), \Aurora\System\Enums\LogLevel::Full, 'push-');
