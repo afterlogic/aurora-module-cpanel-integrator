@@ -6,12 +6,12 @@ class CpanelSettings {
   constructor (appData) {
     const cPanelWebclientData = typesUtils.pObject(appData.CpanelIntegrator)
     if (!_.isEmpty(cPanelWebclientData)) {
-      this.allowAliases = cPanelWebclientData.AllowAliases
-      this.allowCreateDeleteAccountOnCpanel = cPanelWebclientData.AllowCreateDeleteAccountOnCpanel
-      this.cpanelHasPassword = cPanelWebclientData.CpanelHasPassword
-      this.cpanelHost = cPanelWebclientData.CpanelHost
-      this.panelPort = cPanelWebclientData.CpanelPort
-      this.panelUser = cPanelWebclientData.CpanelUser
+      this.allowAliases = typesUtils.pBool(cPanelWebclientData.AllowAliases)
+      this.allowCreateDeleteAccountOnCpanel = typesUtils.pBool(cPanelWebclientData.AllowCreateDeleteAccountOnCpanel)
+      this.cpanelHasPassword = typesUtils.pBool(cPanelWebclientData.CpanelHasPassword)
+      this.cpanelHost = typesUtils.pString(cPanelWebclientData.CpanelHost)
+      this.panelPort = typesUtils.pString(cPanelWebclientData.CpanelPort)
+      this.panelUser = typesUtils.pString(cPanelWebclientData.CpanelUser)
     }
   }
 
