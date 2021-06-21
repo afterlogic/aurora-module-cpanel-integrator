@@ -48,6 +48,7 @@ import UnsavedChangesDialog from 'src/components/UnsavedChangesDialog'
 import webApi from 'src/utils/web-api'
 import notification from 'src/utils/notification'
 import errors from 'src/utils/errors'
+import _ from 'lodash'
 
 export default {
   name: 'CpanelAdminSettings',
@@ -68,13 +69,28 @@ export default {
   mounted() {
     this.populate()
   },
+  beforeRouteLeave(to, from, next) {
+    if (this.hasChanges() && _.isFunction(this?.$refs?.unsavedChangesDialog?.openConfirmDiscardChangesDialog)) {
+      this.$refs.unsavedChangesDialog.openConfirmDiscardChangesDialog(next)
+    } else {
+      next()
+    }
+  },
   methods: {
     populate () {
       const data = settings.getCpanelSettings()
       this.cpanelHost = data.cpanelHost
       this.panelPort = data.panelPort
       this.panelUser = data.panelUser
+      this.fakePass = data.cpanelHasPassword ? '     ' : ''
       this.password = data.cpanelHasPassword ? this.fakePass : ''
+    },
+    hasChanges() {
+      const data = settings.getCpanelSettings()
+      return this.cpanelHost !== data.cpanelHost ||
+      this.panelPort !== data.panelPort ||
+      this.panelUser !== data.panelUser ||
+      this.password !== this.fakePass
     },
     save() {
       if (!this.saving) {
@@ -100,6 +116,7 @@ export default {
               panelUser: this.panelUser,
               cpanelHasPassword: !!this.password,
             })
+            this.fakePass = this.password
             this.populate()
             notification.showReport(this.$t('COREWEBCLIENT.REPORT_SETTINGS_UPDATE_SUCCESS'))
           } else {
