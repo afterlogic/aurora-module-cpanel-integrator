@@ -50,6 +50,8 @@ import notification from 'src/utils/notification'
 import errors from 'src/utils/errors'
 import _ from 'lodash'
 
+const FAKE_PASS = '     '
+
 export default {
   name: 'CpanelAdminSettings',
   data() {
@@ -59,8 +61,8 @@ export default {
       panelPort: '',
       panelUser: '',
       cpanelHasPassword: false,
-      password: '',
-      fakePass: '     '
+      password: FAKE_PASS,
+      fakePass: FAKE_PASS
     }
   },
   components: {
@@ -82,15 +84,15 @@ export default {
       this.cpanelHost = data.cpanelHost
       this.panelPort = data.panelPort
       this.panelUser = data.panelUser
-      this.fakePass = data.cpanelHasPassword ? '     ' : ''
-      this.password = data.cpanelHasPassword ? this.fakePass : ''
+      this.savedPass = data.cpanelHasPassword ? FAKE_PASS : ''
+      this.password = data.cpanelHasPassword ? FAKE_PASS : ''
     },
     hasChanges() {
       const data = settings.getCpanelSettings()
       return this.cpanelHost !== data.cpanelHost ||
       this.panelPort !== data.panelPort ||
       this.panelUser !== data.panelUser ||
-      this.password !== this.fakePass
+      this.password !== this.savedPass
     },
     save() {
       if (!this.saving) {
@@ -100,7 +102,7 @@ export default {
           CpanelPort: this.panelPort,
           CpanelUser: this.panelUser,
         }
-        if (this.fakePass !== this.password) {
+        if (this.fakePass !== FAKE_PASS) {
           parameters.CpanelPassword = this.password
         }
         webApi.sendRequest({
@@ -114,10 +116,9 @@ export default {
               cpanelHost: this.cpanelHost,
               panelPort: this.panelPort,
               panelUser: this.panelUser,
-              cpanelHasPassword: !!this.password,
+              cpanelHasPassword: this.password !== '',
             })
-            this.fakePass = this.password
-            this.populate()
+            this.savedPass = this.password
             notification.showReport(this.$t('COREWEBCLIENT.REPORT_SETTINGS_UPDATE_SUCCESS'))
           } else {
             notification.showError(this.$t('COREWEBCLIENT.ERROR_SAVING_SETTINGS_FAILED'))
