@@ -62,8 +62,7 @@ export default {
       panelUser: '',
       cpanelHasPassword: false,
       password: FAKE_PASS,
-      fakePass: FAKE_PASS,
-      savedPass: ''
+      savedPass: FAKE_PASS
     }
   },
   components: {
@@ -103,7 +102,7 @@ export default {
           CpanelPort: this.panelPort,
           CpanelUser: this.panelUser,
         }
-        if (this.fakePass !== FAKE_PASS) {
+        if (this.password !== FAKE_PASS) {
           parameters.CpanelPassword = this.password
         }
         webApi.sendRequest({
