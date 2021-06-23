@@ -62,7 +62,8 @@ export default {
       panelUser: '',
       cpanelHasPassword: false,
       password: FAKE_PASS,
-      fakePass: FAKE_PASS
+      fakePass: FAKE_PASS,
+      savedPass: ''
     }
   },
   components: {
