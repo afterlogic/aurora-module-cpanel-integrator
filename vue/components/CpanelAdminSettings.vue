@@ -8,31 +8,31 @@
         <q-card-section>
           <div class="row q-mb-md">
             <div class="col-2 q-my-sm" v-t="'CPANELINTEGRATOR.LABEL_CPANEL_HOST'"></div>
-            <div class="col-4 q-ml-xl">
+            <div class="col-5">
               <q-input outlined dense class="bg-white" v-model="cpanelHost" @keyup.enter="save"/>
             </div>
           </div>
           <div class="row q-mb-md">
             <div class="col-2 q-my-sm" v-t="'CPANELINTEGRATOR.LABEL_CPANEL_PORT'"></div>
-            <div class="col-4 q-ml-xl">
+            <div class="col-5">
               <q-input outlined dense class="bg-white" v-model="panelPort" @keyup.enter="save"/>
             </div>
           </div>
           <div class="row q-mb-md">
             <div class="col-2 q-my-sm" v-t="'CPANELINTEGRATOR.LABEL_CPANEL_USER'"></div>
-            <div class="col-4 q-ml-xl">
+            <div class="col-5">
               <q-input outlined dense class="bg-white" v-model="panelUser" @keyup.enter="save"/>
             </div>
           </div>
           <div class="row q-mb-md">
             <div class="col-2 q-my-sm" v-t="'CPANELINTEGRATOR.LABEL_CPANEL_PASS'"></div>
-            <div class="col-4 q-ml-xl">
+            <div class="col-5">
               <q-input outlined dense class="bg-white" v-model="password" ref="oldPassword" type="password" @keyup.enter="save"/>
             </div>
           </div>
         </q-card-section>
       </q-card>
-      <div class="q-pa-md text-right">
+      <div class="q-pt-md text-right">
         <q-btn unelevated no-caps dense class="q-px-sm" :ripple="false" color="primary" @click="save"
                :label="saving ? $t('COREWEBCLIENT.ACTION_SAVE_IN_PROGRESS') : $t('COREWEBCLIENT.ACTION_SAVE')">
         </q-btn>
