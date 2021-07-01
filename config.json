@@ -36,7 +36,7 @@
 		"bool"
 	],
 	"ForwardScriptPath": [
-		"/home/privatemail/public_html/scripts/process_mail.php",
+		"",
 		"string"
 	]
 }
