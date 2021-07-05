@@ -15,7 +15,7 @@ export default {
         tabName: 'cpanel',
         title: 'CPANELINTEGRATOR.ADMIN_SETTINGS_TAB_LABEL',
         component () {
-          return import('src/../../../CpanelIntegrator/vue/components/CpanelAdminSettings')
+          return import('./components/CpanelAdminSettings')
         },
       },
     ]
@@ -32,7 +32,7 @@ export default {
         ],
         title: 'CPANELINTEGRATOR.ADMIN_SETTINGS_TAB_LABEL',
         component () {
-          return import('src/../../../CpanelIntegrator/vue/components/CpanelAdminSettingsPerTenant')
+          return import('./components/CpanelAdminSettingsPerTenant')
         }
       }
     ]
