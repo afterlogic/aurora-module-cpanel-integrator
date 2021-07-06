@@ -27,7 +27,7 @@
           <div class="row q-mb-md">
             <div class="col-2 q-my-sm" v-t="'CPANELINTEGRATOR.LABEL_CPANEL_PASS'"></div>
             <div class="col-5">
-              <q-input outlined dense class="bg-white" v-model="password" ref="oldPassword" type="password" @keyup.enter="save"/>
+              <q-input outlined dense class="bg-white" v-model="password" ref="oldPassword" type="password" autocomplete="new-password" @keyup.enter="save"/>
             </div>
           </div>
         </q-card-section>
