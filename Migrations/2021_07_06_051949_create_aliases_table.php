@@ -22,7 +22,8 @@ class CreateAliasesTable extends Migration
             $table->string('FriendlyName')->default('');
             $table->boolean('UseSignature')->default(false);
             $table->text('Signature');
-            $table->timestamps();
+            $table->timestamp(\Aurora\System\Classes\Model::CREATED_AT)->nullable();
+            $table->timestamp(\Aurora\System\Classes\Model::UPDATED_AT)->nullable();
         });
     }
 
