@@ -9,25 +9,25 @@
           <div class="row q-mb-md">
             <div class="col-2 q-my-sm" v-t="'CPANELINTEGRATOR.LABEL_CPANEL_HOST'"></div>
             <div class="col-5">
-              <q-input outlined dense class="bg-white" v-model="cpanelHost" @keyup.enter="save"/>
+              <q-input outlined dense class="bg-white input" v-model="cpanelHost" @keyup.enter="save"/>
             </div>
           </div>
           <div class="row q-mb-md">
             <div class="col-2 q-my-sm" v-t="'CPANELINTEGRATOR.LABEL_CPANEL_PORT'"></div>
             <div class="col-5">
-              <q-input outlined dense class="bg-white" v-model="panelPort" @keyup.enter="save"/>
+              <q-input outlined dense class="bg-white input" v-model="panelPort" @keyup.enter="save"/>
             </div>
           </div>
           <div class="row q-mb-md">
             <div class="col-2 q-my-sm" v-t="'CPANELINTEGRATOR.LABEL_CPANEL_USER'"></div>
             <div class="col-5">
-              <q-input outlined dense class="bg-white" v-model="panelUser" @keyup.enter="save"/>
+              <q-input outlined dense class="bg-white input" v-model="panelUser" @keyup.enter="save"/>
             </div>
           </div>
           <div class="row q-mb-md">
             <div class="col-2 q-my-sm" v-t="'CPANELINTEGRATOR.LABEL_CPANEL_PASS'"></div>
             <div class="col-5">
-              <q-input outlined dense class="bg-white" v-model="password" ref="oldPassword" type="password" autocomplete="new-password" @keyup.enter="save"/>
+              <q-input outlined dense class="bg-white input" v-model="password" ref="oldPassword" type="password" autocomplete="new-password" @keyup.enter="save"/>
             </div>
           </div>
         </q-card-section>
@@ -134,5 +134,7 @@ export default {
 </script>
 
 <style scoped>
-
+.input {
+  border-radius: 6px;
+}
 </style>
