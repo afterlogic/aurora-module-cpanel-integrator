@@ -9,13 +9,13 @@
           <div class="row q-mb-md">
             <div class="col-2 q-mt-sm" v-t="'CPANELINTEGRATOR.LABEL_ALIAS'"></div>
             <div class="col-3">
-              <q-input outlined dense class="bg-white" v-model="aliasName"/>
+              <q-input outlined dense bg-color="white" v-model="aliasName"/>
             </div>
             <div class="q-ml-sm q-mr-xs">
               <span class="text-h6"><b>@</b></span>
             </div>
             <div>
-              <q-select outlined dense class="bg-white" v-model="aliasDomain" :options="domainsList"/>
+              <q-select outlined dense bg-color="white" v-model="aliasDomain" :options="domainsList"/>
             </div>
             <div class="col-3 q-mt-xs q-ml-md">
               <q-btn unelevated no-caps no-wrap dense class="q-ml-md q-px-sm" :ripple="false" color="primary"
