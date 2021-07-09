@@ -39,7 +39,7 @@
       </div>
     </div>
     <q-inner-loading style="justify-content: flex-start;" :showing="loading || saving">
-      <q-linear-progress query class="q-mt-sm" />
+      <q-linear-progress query />
     </q-inner-loading>
     <UnsavedChangesDialog ref="unsavedChangesDialog"/>
   </q-scroll-area>
