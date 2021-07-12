@@ -15,7 +15,7 @@
               <span class="text-h6"><b>@</b></span>
             </div>
             <div>
-              <q-select outlined dense bg-color="white" v-model="aliasDomain" :options="domainsList"/>
+              <q-select outlined dense bg-color="white" v-model="selectedDomain" :options="domainsList"/>
             </div>
             <div class="col-3 q-mt-xs q-ml-md">
               <q-btn unelevated no-caps no-wrap dense class="q-ml-md q-px-sm" :ripple="false" color="primary"
@@ -56,6 +56,7 @@ import errors from 'src/utils/errors'
 import notification from 'src/utils/notification'
 
 import types from 'src/utils/types'
+import cache from "../../../MailDomains/vue/cache";
 
 export default {
   name: 'CpanelAliasesAdminSettingsPerUser',
@@ -71,15 +72,15 @@ export default {
       saving: false,
       deleting: false,
       aliasName: '',
-      aliasDomain: '',
+      selectedDomain: '',
       selectedAliases: [],
       aliasesList: [],
-      domainsList: ['1', '2', '3'],
+      domainsList: [],
       user: null
     }
   },
   computed: {
-    tenantId () {
+    currentTenantId () {
       return this.$store.getters['tenants/getCurrentTenantId']
     }
   },
@@ -94,7 +95,23 @@ export default {
       }
     },
     populate () {
+      this.getDomains()
       this.getSettings()
+    },
+    getDomains () {
+      cache.getDomains(this.currentTenantId).then(({ domains, totalCount, tenantId }) => {
+        if (tenantId === this.currentTenantId) {
+          this.domainsList = domains.map(domain => {
+            return {
+              value: domain.id,
+              label: domain.name
+            }
+          })
+          if (this.domainsList.length > 0) {
+            this.selectedDomain = this.domainsList[0]
+          }
+        }
+      })
     },
     addNewAlias () {
       if (!this.saving) {
@@ -103,25 +120,25 @@ export default {
           const parameters = {
             UserId: this.user?.id,
             AliasName: this.aliasName,
-            AliasDomain: this.aliasDomain,
-            TenantId: this.tenantId,
+            AliasDomain: this.selectedDomain.label,
+            TenantId: this.currentTenantId,
           }
           webApi.sendRequest({
-            moduleName: 'MtaConnector',
+            moduleName: 'CpanelIntegrator',
             methodName: 'AddNewAlias',
             parameters,
           }).then(result => {
             this.saving = false
+            console.log(result)
             if (result === true) {
               this.aliasName = ''
               this.populate()
-              notification.showReport(this.$t('COREWEBCLIENT.REPORT_SETTINGS_UPDATE_SUCCESS'))
             } else {
-              notification.showError(this.$t('COREWEBCLIENT.ERROR_SAVING_SETTINGS_FAILED'))
+              notification.showError(this.$t('COREWEBCLIENT.ERROR_DATA_TRANSFER_FAILED'))
             }
           }, response => {
             this.saving = false
-            notification.showError(errors.getTextFromResponse(response, this.$t('COREWEBCLIENT.ERROR_SAVING_SETTINGS_FAILED')))
+            notification.showError(errors.getTextFromResponse(response, this.$t('COREWEBCLIENT.ERROR_DATA_TRANSFER_FAILED')))
           })
         } else {
           notification.showError(this.$t('COREUSERGROUPSLIMITS.ERROR_EMPTY_RESERVED_NAME'))
@@ -133,11 +150,13 @@ export default {
         this.deleting = true
         if (this.selectedAliases.length) {
           const parameters = {
-            ReservedNames: this.selectedAliases
+            UserId: this.user?.id,
+            Aliases: this.selectedAliases,
+            TenantId: this.tenantId,
           }
           webApi.sendRequest({
-            moduleName: 'CoreUserGroupsLimits',
-            methodName: 'DeleteReservedNames',
+            moduleName: 'CpanelIntegrator',
+            methodName: 'DeleteAlias',
             parameters,
           }).then(result => {
             this.deleting = false
@@ -156,20 +175,24 @@ export default {
     },
     getSettings () {
       this.loading = true
+      const parameters = {
+        UserId: this.user?.id,
+        TenantId: this.currentTenantId
+      }
       webApi.sendRequest({
-        moduleName: 'CoreUserGroupsLimits',
-        methodName: 'GetReservedNames',
-        Parameters: {},
+        moduleName: 'CpanelIntegrator',
+        methodName: 'GetAliases',
+        parameters
       }).then(result => {
-        this.loading = false
-        if (result) {
-          this.reservedList = types.pArray(result)
-        }
-      },
-      response => {
-        this.loading = false
-        notification.showError(errors.getTextFromResponse(response))
-      })
+            this.loading = false
+            if (types.pArray(result.Aliases)) {
+              this.aliasesList = result.Aliases
+            }
+          },
+          response => {
+            this.loading = false
+            notification.showError(errors.getTextFromResponse(response))
+          })
     }
   }
 }
