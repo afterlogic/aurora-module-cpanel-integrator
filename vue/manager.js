@@ -39,19 +39,19 @@ export default {
   },
   getAdminUserTabs () {
     return [
-      {
-        tabName: 'cpanel-aliases',
-        title: 'CPANELINTEGRATOR.LABEL_SETTINGS_TAB_ALIASES',
-        paths: [
-          'id/:id/cpanel-aliases',
-          'search/:search/id/:id/cpanel-aliases',
-          'page/:page/id/:id/cpanel-aliases',
-          'search/:search/page/:page/id/:id/cpanel-aliases',
-        ],
-        component () {
-          return import('./components/CpanelAliasesAdminSettingsPerUser')
-        },
-      }
+      // {
+      //   tabName: 'cpanel-aliases',
+      //   title: 'CPANELINTEGRATOR.LABEL_SETTINGS_TAB_ALIASES',
+      //   paths: [
+      //     'id/:id/cpanel-aliases',
+      //     'search/:search/id/:id/cpanel-aliases',
+      //     'page/:page/id/:id/cpanel-aliases',
+      //     'search/:search/page/:page/id/:id/cpanel-aliases',
+      //   ],
+      //   component () {
+      //     return import('./components/CpanelAliasesAdminSettingsPerUser')
+      //   },
+      // }
     ]
   }
 }
