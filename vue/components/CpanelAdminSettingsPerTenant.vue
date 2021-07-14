@@ -15,13 +15,13 @@
           <div class="row q-mb-md">
             <div class="col-2 q-my-sm" v-t="'CPANELINTEGRATOR.LABEL_CPANEL_PORT'"></div>
             <div class="col-5">
-              <q-input outlined dense bg-color="white" v-model="panelPort" @keyup.enter="save"/>
+              <q-input outlined dense bg-color="white" v-model="cpanelPort" @keyup.enter="save"/>
             </div>
           </div>
           <div class="row q-mb-md">
             <div class="col-2 q-my-sm" v-t="'CPANELINTEGRATOR.LABEL_CPANEL_USER'"></div>
             <div class="col-5">
-              <q-input outlined dense bg-color="white" v-model="panelUser" @keyup.enter="save"/>
+              <q-input outlined dense bg-color="white" v-model="cpanelUser" @keyup.enter="save"/>
             </div>
           </div>
           <div class="row">
@@ -46,37 +46,53 @@
 </template>
 
 <script>
-import UnsavedChangesDialog from 'src/components/UnsavedChangesDialog'
-import webApi from 'src/utils/web-api'
-import notification from 'src/utils/notification'
-import errors from 'src/utils/errors'
-import cache from 'src/cache'
 import _ from 'lodash'
+
+import errors from 'src/utils/errors'
+import notification from 'src/utils/notification'
+import types from 'src/utils/types'
+import webApi from 'src/utils/web-api'
+
+import UnsavedChangesDialog from 'src/components/UnsavedChangesDialog'
 
 const FAKE_PASS = '     '
 
 export default {
   name: 'CpanelAdminSettingsPerTenant',
+
   components: {
     UnsavedChangesDialog
   },
-  computed: {
-    tenantId () {
-      return Number(this.$route?.params?.id)
-    }
-  },
+
   data() {
     return {
       saving: false,
       loading: false,
       cpanelHost: '',
-      panelPort: '',
-      panelUser: '',
+      cpanelPort: '',
+      cpanelUser: '',
       cpanelHasPassword: false,
       password: FAKE_PASS,
       savedPass: FAKE_PASS
     }
   },
+
+  computed: {
+    tenantId () {
+      return this.$store.getters['tenants/getCurrentTenantId']
+    },
+
+    allTenants () {
+      return this.$store.getters['tenants/getTenants']
+    },
+  },
+
+  watch: {
+    allTenants () {
+      this.populate()
+    },
+  },
+
   beforeRouteLeave (to, from, next) {
     if (this.hasChanges() && _.isFunction(this?.$refs?.unsavedChangesDialog?.openConfirmDiscardChangesDialog)) {
       this.$refs.unsavedChangesDialog.openConfirmDiscardChangesDialog(next)
@@ -84,41 +100,45 @@ export default {
       next()
     }
   },
+
   mounted() {
+    this.loading = false
+    this.saving = false
     this.populate()
   },
+
   methods: {
     hasChanges () {
-      const cpanelHost = _.isFunction(this.tenant?.getData) ? this.tenant?.getData('CpanelIntegrator::CpanelHost') : ''
-      const panelPort = _.isFunction(this.tenant?.getData) ? this.tenant?.getData('CpanelIntegrator::CpanelPort') : ''
-      const panelUser = _.isFunction(this.tenant?.getData) ? this.tenant?.getData('CpanelIntegrator::CpanelUser') : ''
-      return this.cpanelHost !== cpanelHost ||
-          this.panelPort !== panelPort ||
-          this.panelUser !== panelUser ||
+      const tenantCompleteData = types.pObject(this.tenant?.completeData)
+      const cpanelPort = tenantCompleteData['CpanelIntegrator::CpanelPort']
+      return this.cpanelHost !== tenantCompleteData['CpanelIntegrator::CpanelHost'] ||
+          types.pInt(this.cpanelPort) !== cpanelPort ||
+          this.cpanelUser !== tenantCompleteData['CpanelIntegrator::CpanelUser'] ||
           this.password !== this.savedPass
     },
+
     populate () {
-      this.loading = true
-      cache.getTenant(this.tenantId).then(({ tenant }) => {
+      const tenant = this.$store.getters['tenants/getTenant'](this.tenantId)
+      if (tenant) {
         if (tenant.completeData['CpanelIntegrator::CpanelHost'] !== undefined) {
-          this.loading = false
           this.tenant = tenant
           this.cpanelHost = tenant.completeData['CpanelIntegrator::CpanelHost']
-          this.panelPort = tenant.completeData['CpanelIntegrator::CpanelPort']
-          this.panelUser = tenant.completeData['CpanelIntegrator::CpanelUser']
+          this.cpanelPort = tenant.completeData['CpanelIntegrator::CpanelPort']
+          this.cpanelUser = tenant.completeData['CpanelIntegrator::CpanelUser']
           this.cpanelHasPassword = tenant.completeData['CpanelIntegrator::CpanelHasPassword']
         } else {
           this.getSettings()
         }
-      })
+      }
     },
-    save() {
+
+    save () {
       if (!this.saving) {
         this.saving = true
         const parameters = {
           CpanelHost: this.cpanelHost,
-          CpanelPort: this.panelPort,
-          CpanelUser: this.panelUser,
+          CpanelPort: types.pInt(this.cpanelPort),
+          CpanelUser: this.cpanelUser,
           TenantId: this.tenantId
         }
         if (this.password !== FAKE_PASS) {
@@ -132,15 +152,13 @@ export default {
           this.saving = false
           if (result === true) {
             this.savedPass = this.password
-            cache.getTenant(parameters.TenantId, true).then(({ tenant }) => {
-              tenant.setCompleteData({
-                'CpanelIntegrator::CpanelHost': parameters.CpanelHost,
-                'CpanelIntegrator::CpanelPort': parameters.CpanelPort,
-                'CpanelIntegrator::CpanelUser': parameters.CpanelUser,
-                'CpanelIntegrator::CpanelHasPassword': this.password !== ''
-              })
-              this.populate()
-            })
+            const data = {
+              'CpanelIntegrator::CpanelHost': parameters.CpanelHost,
+              'CpanelIntegrator::CpanelPort': parameters.CpanelPort,
+              'CpanelIntegrator::CpanelUser': parameters.CpanelUser,
+              'CpanelIntegrator::CpanelHasPassword': this.password !== ''
+            }
+            this.$store.commit('tenants/setTenantCompleteData', { id: this.tenantId, data })
             notification.showReport(this.$t('COREWEBCLIENT.REPORT_SETTINGS_UPDATE_SUCCESS'))
           } else {
             notification.showError(this.$t('COREWEBCLIENT.ERROR_SAVING_SETTINGS_FAILED'))
@@ -151,6 +169,7 @@ export default {
         })
       }
     },
+
     getSettings () {
       this.loading = true
       const parameters = {
@@ -161,17 +180,15 @@ export default {
         methodName: 'GetSettings',
         parameters
       }).then(result => {
+        this.loading = false
         if (result) {
-          this.loading = false
-          cache.getTenant(parameters.TenantId, true).then(({ tenant }) => {
-            tenant.setCompleteData({
-              'CpanelIntegrator::CpanelHost': result.CpanelHost,
-              'CpanelIntegrator::CpanelPort': result.CpanelPort,
-              'CpanelIntegrator::CpanelUser': result.CpanelUser,
-              'CpanelIntegrator::CpanelHasPassword': result.CpanelHasPassword
-            })
-            this.populate()
-          })
+          const data = {
+            'CpanelIntegrator::CpanelHost': types.pString(result.CpanelHost),
+            'CpanelIntegrator::CpanelPort': types.pInt(result.CpanelPort),
+            'CpanelIntegrator::CpanelUser': types.pString(result.CpanelUser),
+            'CpanelIntegrator::CpanelHasPassword': types.pBool(result.CpanelHasPassword),
+          }
+          this.$store.commit('tenants/setTenantCompleteData', { id: this.tenantId, data })
         }
       }, response => {
         notification.showError(errors.getTextFromResponse(response))
