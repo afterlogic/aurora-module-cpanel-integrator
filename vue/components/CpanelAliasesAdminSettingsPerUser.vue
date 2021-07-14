@@ -83,7 +83,7 @@ export default {
       return this.$store.getters['tenants/getCurrentTenantId']
     },
     domains () {
-      return this.$store.getters['maildomains/getDomains']
+      return types.pArray(this.$store.getters['maildomains/getDomains'])
     }
   },
   watch: {
