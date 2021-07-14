@@ -15,7 +15,7 @@
               <span class="text-h6"><b>@</b></span>
             </div>
             <div>
-              <q-select outlined dense bg-color="white" v-model="selectedDomain" :options="domainsList"/>
+              <q-select outlined dense bg-color="white" style="width: 180px" v-model="selectedDomain" :options="domainsList"/>
             </div>
             <div class="col-3 q-mt-xs q-ml-md">
               <q-btn unelevated no-caps no-wrap dense class="q-ml-md q-px-sm" :disable="!aliasName.length" :ripple="false" color="primary"
@@ -56,7 +56,6 @@ import errors from 'src/utils/errors'
 import notification from 'src/utils/notification'
 
 import types from 'src/utils/types'
-import cache from "../../../MailDomains/vue/cache";
 
 export default {
   name: 'CpanelAliasesAdminSettingsPerUser',
@@ -82,9 +81,30 @@ export default {
   computed: {
     currentTenantId () {
       return this.$store.getters['tenants/getCurrentTenantId']
+    },
+    domains () {
+      return this.$store.getters['maildomains/getDomains']
     }
   },
+  watch: {
+    domains (domains) {
+      this.domainsList = domains[this.currentTenantId].map(domain => {
+        return {
+          value: domain.Id,
+          label: domain.Name
+        }
+      })
+      if (this.domainsList.length > 0) {
+        this.selectedDomain = this.domainsList[0]
+      }
+    },
+  },
   methods: {
+    requestDomains () {
+        this.$store.dispatch('maildomains/requestDomains', {
+          tenantId: this.currentTenantId
+        })
+    },
     parseRoute () {
       const userId = types.pPositiveInt(this.$route?.params?.id)
       if (this.user?.id !== userId) {
@@ -95,23 +115,8 @@ export default {
       }
     },
     populate () {
-      this.getDomains()
+      this.requestDomains()
       this.getSettings()
-    },
-    getDomains () {
-      cache.getDomains(this.currentTenantId).then(({ domains, totalCount, tenantId }) => {
-        if (tenantId === this.currentTenantId) {
-          this.domainsList = domains.map(domain => {
-            return {
-              value: domain.id,
-              label: domain.name
-            }
-          })
-          if (this.domainsList.length > 0) {
-            this.selectedDomain = this.domainsList[0]
-          }
-        }
-      })
     },
     addNewAlias () {
       if (!this.saving) {

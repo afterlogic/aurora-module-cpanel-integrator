@@ -1,4 +1,5 @@
 import settings from '../../CpanelIntegrator/vue/settings'
+import moduleManager from 'src/modules-manager'
 
 export default {
   moduleName: 'CpanelIntegrator',
@@ -37,21 +38,24 @@ export default {
       },
     ]
   },
-  getAdminUserTabs () {
-    return [
-      // {
-      //   tabName: 'cpanel-aliases',
-      //   title: 'CPANELINTEGRATOR.LABEL_SETTINGS_TAB_ALIASES',
-      //   paths: [
-      //     'id/:id/cpanel-aliases',
-      //     'search/:search/id/:id/cpanel-aliases',
-      //     'page/:page/id/:id/cpanel-aliases',
-      //     'search/:search/page/:page/id/:id/cpanel-aliases',
-      //   ],
-      //   component () {
-      //     return import('./components/CpanelAliasesAdminSettingsPerUser')
-      //   },
-      // }
-    ]
+  getAdminUserTabs() {
+    if (moduleManager.isModuleAvailable('MailDomains')) {
+      return [
+        {
+          tabName: 'cpanel-aliases',
+          title: 'CPANELINTEGRATOR.LABEL_SETTINGS_TAB_ALIASES',
+          paths: [
+            'id/:id/cpanel-aliases',
+            'search/:search/id/:id/cpanel-aliases',
+            'page/:page/id/:id/cpanel-aliases',
+            'search/:search/page/:page/id/:id/cpanel-aliases',
+          ],
+          component() {
+            return import('./components/CpanelAliasesAdminSettingsPerUser')
+          },
+        }
+      ]
+    }
+    return []
   }
 }
