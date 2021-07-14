@@ -15,7 +15,7 @@
               <span class="text-h6"><b>@</b></span>
             </div>
             <div>
-              <q-select outlined dense bg-color="white" style="width: 180px" v-model="selectedDomain" :options="domainsList"/>
+              <q-select outlined dense bg-color="white" class="domains-select" v-model="selectedDomain" :options="domainsList"/>
             </div>
             <div class="col-3 q-mt-xs q-ml-md">
               <q-btn unelevated no-caps no-wrap dense class="q-ml-md q-px-sm" :disable="!aliasName.length" :ripple="false" color="primary"
@@ -87,8 +87,13 @@ export default {
     }
   },
   watch: {
-    domains (domains) {
-      this.domainsList = domains[this.currentTenantId].map(domain => {
+    domains () {
+     this.generateDomains()
+    },
+  },
+  methods: {
+    generateDomains () {
+      this.domainsList = this.domains[this.currentTenantId].map(domain => {
         return {
           value: domain.Id,
           label: domain.Name
@@ -98,8 +103,6 @@ export default {
         this.selectedDomain = this.domainsList[0]
       }
     },
-  },
-  methods: {
     requestDomains () {
         this.$store.dispatch('maildomains/requestDomains', {
           tenantId: this.currentTenantId
@@ -115,7 +118,7 @@ export default {
       }
     },
     populate () {
-      this.requestDomains()
+      this.generateDomains()
       this.getSettings()
     },
     addNewAlias () {
