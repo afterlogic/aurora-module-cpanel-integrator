@@ -88,7 +88,7 @@ export default {
   },
   watch: {
     domains () {
-     this.generateDomains()
+      this.generateDomains()
     },
   },
   methods: {
@@ -104,9 +104,9 @@ export default {
       }
     },
     requestDomains () {
-        this.$store.dispatch('maildomains/requestDomains', {
-          tenantId: this.currentTenantId
-        })
+      this.$store.dispatch('maildomains/requestDomains', {
+        tenantId: this.currentTenantId
+      })
     },
     parseRoute () {
       const userId = types.pPositiveInt(this.$route?.params?.id)
@@ -194,7 +194,7 @@ export default {
       },
       response => {
         this.loading = false
-         notification.showError(errors.getTextFromResponse(response))
+        notification.showError(errors.getTextFromResponse(response))
       })
     }
   }
