@@ -1,6 +1,6 @@
 #!/usr/local/bin/php
 <?php
-if (PHP_SAPI !== 'cli')
+if (!\Aurora\System\Utils::is_cli())
 {
     exit("Use console");
 }
