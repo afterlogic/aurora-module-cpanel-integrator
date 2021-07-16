@@ -38,17 +38,15 @@
         </q-btn>
       </div>
     </div>
-    <UnsavedChangesDialog ref="unsavedChangesDialog"/>
   </q-scroll-area>
 </template>
 
 <script>
-import settings from '../../../CpanelIntegrator/vue/settings'
-import UnsavedChangesDialog from 'src/components/UnsavedChangesDialog'
 import webApi from 'src/utils/web-api'
 import notification from 'src/utils/notification'
 import errors from 'src/utils/errors'
-import _ from 'lodash'
+
+import settings from '../../../CpanelIntegrator/vue/settings'
 
 const FAKE_PASS = '     '
 
@@ -65,19 +63,15 @@ export default {
       savedPass: FAKE_PASS
     }
   },
-  components: {
-    UnsavedChangesDialog
-  },
+
   mounted() {
     this.populate()
   },
+
   beforeRouteLeave(to, from, next) {
-    if (this.hasChanges() && _.isFunction(this?.$refs?.unsavedChangesDialog?.openConfirmDiscardChangesDialog)) {
-      this.$refs.unsavedChangesDialog.openConfirmDiscardChangesDialog(next)
-    } else {
-      next()
-    }
+    this.doBeforeRouteLeave(to, from, next)
   },
+
   methods: {
     populate () {
       const data = settings.getCpanelSettings()
@@ -87,6 +81,10 @@ export default {
       this.savedPass = data.cpanelHasPassword ? FAKE_PASS : ''
       this.password = data.cpanelHasPassword ? FAKE_PASS : ''
     },
+
+    /**
+     * Method is used in doBeforeRouteLeave mixin
+     */
     hasChanges() {
       const data = settings.getCpanelSettings()
       return this.cpanelHost !== data.cpanelHost ||
@@ -94,6 +92,16 @@ export default {
       this.panelUser !== data.panelUser ||
       this.password !== this.savedPass
     },
+
+    /**
+     * Method is used in doBeforeRouteLeave mixin,
+     * do not use async methods - just simple and plain reverting of values
+     * !! hasChanges method must return true after executing revertChanges method
+     */
+    revertChanges () {
+      this.populate()
+    },
+
     save() {
       if (!this.saving) {
         this.saving = true
