@@ -7,6 +7,9 @@
 
 namespace Aurora\Modules\CpanelIntegrator;
 
+use Aurora\Modules\Core\Classes\Tenant;
+use Aurora\Modules\MailDomains\Classes\Domain;
+
 /**
  * @license https://www.gnu.org/licenses/agpl-3.0.html AGPL-3.0
  * @license https://afterlogic.com/products/common-licensing Afterlogic Software License
@@ -65,6 +68,16 @@ class Module extends \Aurora\System\Module\AbstractModule
 		$this->subscribeEvent('MailDomains::DeleteDomains::before', array($this, 'onBeforeDeleteEntities'));
 		$this->subscribeEvent('Mail::IsEmailAllowedForCreation::after', array($this, 'onAfterIsEmailAllowedForCreation'));
 
+		Tenant::extend(self::GetName(), [
+			'UseDomainSettings'	=> array('bool', false, true)
+		]);
+
+		Domain::extend(self::GetName(), [
+			'CpanelHost'		=> array('string', '', true),
+			'CpanelPort'		=> array('string', '', true),
+			'CpanelUser'		=> array('string', '', true),
+			'CpanelPassword'	=> array('string', '', true),
+		]);
 	}
 
 	public function getManager($sManager)
@@ -83,37 +96,65 @@ class Module extends \Aurora\System\Module\AbstractModule
 	 * @param int $iTenantId
 	 * @return object
 	 */
-	protected function getCpanel($iTenantId = 0)
+	protected function getCpanel($iTenantId = 0, $oUser = null)
 	{
-		if (!isset($this->oCpanel[$iTenantId]))
+		$mResult = null;
+		$oAuthenticatedUser = \Aurora\System\Api::getAuthenticatedUser();
+		if ($iTenantId !== 0 && $oAuthenticatedUser->Role === \Aurora\System\Enums\UserRole::SuperAdmin)
 		{
-			$sHost = $this->getConfig('CpanelHost', '');
-			$sPort = $this->getConfig('CpanelPort', '');
-			$sUser = $this->getConfig('CpanelUser', '');
-			$sPassword = $this->getConfig('CpanelPassword', '');
-
-			$oAuthenticatedUser = \Aurora\System\Api::getAuthenticatedUser();
-			if ($iTenantId !== 0 && $oAuthenticatedUser->Role === \Aurora\System\Enums\UserRole::SuperAdmin)
+			$oTenant = \Aurora\System\Api::getTenantById($iTenantId);
+			if (!$oTenant->{self::GetName() . '::UseDomainSettings'}) 
 			{
-				$oSettings = $this->GetModuleSettings();
-				$oTenant = \Aurora\System\Api::getTenantById($iTenantId);
-				$sHost = $oSettings->GetTenantValue($oTenant->Name, 'CpanelHost', '');
-				$sPort = $oSettings->GetTenantValue($oTenant->Name, 'CpanelPort', '');
-				$sUser = $oSettings->GetTenantValue($oTenant->Name, 'CpanelUser', '');
-				$sPassword = $oSettings->GetTenantValue($oTenant->Name, 'CpanelPassword', '');
+				if (!isset($this->oCpanel[$iTenantId]))
+				{
+					$oSettings = $this->GetModuleSettings();
+
+					$sHost = $oSettings->GetTenantValue($oTenant->Name, 'CpanelHost', '');
+					$sPort = $oSettings->GetTenantValue($oTenant->Name, 'CpanelPort', '');
+					$sUser = $oSettings->GetTenantValue($oTenant->Name, 'CpanelUser', '');
+					$sPassword = $oSettings->GetTenantValue($oTenant->Name, 'CpanelPassword', '');
+
+					$this->oCpanel[$iTenantId] = new \Gufy\CpanelPhp\Cpanel([
+						'host' => "https://" . $sHost . ":" . $sPort,
+						'username' => $sUser,
+						'auth_type' => 'password',
+						'password' => $sPassword,
+					]);
+				}
+
+				$mResult = $this->oCpanel[$iTenantId];
 			}
+			else if ($oUser instanceof \Aurora\Modules\Core\Classes\User) 
+			{
+				$sDomainName = \MailSo\Base\Utils::GetDomainFromEmail($oUser->PublicId);
+				if (!isset($this->oCpanel[$iTenantId][$sDomainName])) 
+				{
+					$oDomain = \Aurora\Modules\MailDomains\Module::getInstance()->getDomainsManager()->getDomainByName($sDomainName, $iTenantId);
+					if ($oDomain instanceof Domain) 
+					{
+						$sHost = $oDomain->{self::GetName() . '::CpanelHost'};
+						$sPort = $oDomain->{self::GetName() . '::CpanelPort'};
+						$sUser = $oDomain->{self::GetName() . '::CpanelUser'};
+						$sPassword = $oDomain->{self::GetName() . '::CpanelPassword'};
 
-			$this->oCpanel[$iTenantId] = new \Gufy\CpanelPhp\Cpanel([
-				'host' => "https://" . $sHost . ":" . $sPort,
-				'username' => $sUser,
-				'auth_type' => 'password',
-				'password' => $sPassword,
-			]);
+						$this->oCpanel[$iTenantId][$sDomainName] = new \Gufy\CpanelPhp\Cpanel([
+							'host' => "https://" . $sHost . ":" . $sPort,
+							'username' => $sUser,
+							'auth_type' => 'password',
+							'password' => $sPassword,
+						]);	
+					}					
+				}
 
+				$mResult = $this->oCpanel[$iTenantId][$sDomainName];
+			}
+		}
+		if ($mResult !== null)
+		{
 			$this->oCpanel[$iTenantId]->setTimeout(30);
 		}
 
-		return $this->oCpanel[$iTenantId];
+		return $mResult;
 	}
 
 	/**
@@ -156,7 +197,7 @@ class Module extends \Aurora\System\Module\AbstractModule
 			{
 				try
 				{
-					$oCpanel = $this->getCpanel($oUser->IdTenant);
+					$oCpanel = $this->getCpanel($oUser->IdTenant, $oUser);
 				}
 				catch(\Exception $oException) {}
 
@@ -249,7 +290,7 @@ class Module extends \Aurora\System\Module\AbstractModule
 			{
 				$aTenantQuota = \Aurora\Modules\Mail\Module::Decorator()->GetEntitySpaceLimits('Tenant', $oUser->EntityId, $oUser->IdTenant);
 				$iQuota = $aTenantQuota ? $aTenantQuota['UserSpaceLimitMb'] : (int) $this->getConfig('UserDefaultQuotaMB', 1);
-				$oCpanel = $this->getCpanel($oUser->IdTenant);
+				$oCpanel = $this->getCpanel($oUser->IdTenant, $oUser);
 				$sCpanelResponse = $this->executeCpanelAction($oCpanel, 'Email', 'add_pop',
 					[
 						'email' => $aArgs['IncomingLogin'],
@@ -316,7 +357,7 @@ class Module extends \Aurora\System\Module\AbstractModule
 
 				$oSettings = $this->GetModuleSettings();
 				//Checking if an account exists on CPanel
-				$oCpanel = $this->getCpanel($oUser->IdTenant);
+				$oCpanel = $this->getCpanel($oUser->IdTenant, $oUser);
 				if ($oCpanel)
 				{
 					$sCpanelResponse = $this->executeCpanelAction(
@@ -362,7 +403,8 @@ class Module extends \Aurora\System\Module\AbstractModule
 		$iTenantId = $aArgs['TenantId'];
 		$sEmail = $aArgs['Email'];
 		$iQuota = $aArgs['QuotaMb'];
-		$oCpanel = $this->getCpanel($iTenantId);
+		$oUser = \Aurora\Modules\Core\Module::getInstance()->GetUserByPublicId($sEmail);
+		$oCpanel = $this->getCpanel($iTenantId, $oUser);
 		$sLogin = \MailSo\Base\Utils::GetAccountNameFromEmail($sEmail);
 		$sDomain = \MailSo\Base\Utils::GetDomainFromEmail($sEmail);
 		if ($this->isDomainSupported($sDomain))
@@ -487,7 +529,7 @@ class Module extends \Aurora\System\Module\AbstractModule
 				$oUser = \Aurora\Modules\Core\Module::Decorator()->GetUserUnchecked($oAccount->IdUser);
 				if ($oUser instanceof \Aurora\Modules\Core\Classes\User)
 				{
-					$oCpanel = $this->getCpanel($oUser->IdTenant);
+					$oCpanel = $this->getCpanel($oUser->IdTenant, $oUser);
 				}
 				if ($oCpanel)
 				{
@@ -680,7 +722,7 @@ class Module extends \Aurora\System\Module\AbstractModule
 			// check if account belongs to authenticated user
 			&& $oAccount->IdUser === $oAuthenticatedUser->EntityId)
 			{
-				$oCpanel = $this->getCpanel($oAuthenticatedUser->IdTenant);
+				$oCpanel = $this->getCpanel($oAuthenticatedUser->IdTenant, $oAuthenticatedUser);
 				if ($oCpanel)
 				{
 					$mResult = $this->getFilters($oAccount, $oAuthenticatedUser->IdTenant);
@@ -716,7 +758,7 @@ class Module extends \Aurora\System\Module\AbstractModule
 				// check if account belongs to authenticated user
 				&& $oAccount->IdUser === $oAuthenticatedUser->EntityId)
 			{
-				$oCpanel = $this->getCpanel($oAuthenticatedUser->IdTenant);
+				$oCpanel = $this->getCpanel($oAuthenticatedUser->IdTenant, $oAuthenticatedUser);
 				if ($oCpanel && $this->removeSupportedFilters($oAccount, $oAuthenticatedUser->IdTenant))
 				{
 					if (count($aArgs['Filters']) === 0)
@@ -929,8 +971,8 @@ class Module extends \Aurora\System\Module\AbstractModule
 	protected function getForwarder($sDomain, $sEmail, $iTenantId = 0)
 	{
 		$aResult = [];
-
-		$oCpanel = $this->getCpanel($iTenantId);
+		$oUser = \Aurora\Modules\Core\Module::getInstance()->GetUserByPublicId($sEmail);
+		$oCpanel = $this->getCpanel($iTenantId, $oUser);
 		if ($oCpanel && $sDomain && $sEmail)
 		{
 			$sCpanelResponse = $this->executeCpanelAction($oCpanel, 'Email', 'list_forwarders',
@@ -972,7 +1014,8 @@ class Module extends \Aurora\System\Module\AbstractModule
 	 */
 	protected function deleteForwarder($sAddress, $sForwarder, $iTenantId = 0)
 	{
-		$oCpanel = $this->getCpanel($iTenantId);
+		$oUser = \Aurora\Modules\Core\Module::getInstance()->GetUserByPublicId($sAddress);
+		$oCpanel = $this->getCpanel($iTenantId, $oUser);
 
 		if ($oCpanel && $sAddress && $sForwarder)
 		{
@@ -999,7 +1042,8 @@ class Module extends \Aurora\System\Module\AbstractModule
 	 */
 	protected function createForwarder($sDomain, $sEmail, $sForwardEmail, $iTenantId = 0)
 	{
-		$oCpanel = $this->getCpanel($iTenantId);
+		$oUser = \Aurora\Modules\Core\Module::getInstance()->GetUserByPublicId($sEmail);
+		$oCpanel = $this->getCpanel($iTenantId, $oUser);
 
 		if ($oCpanel && $sDomain && $sEmail && $sForwardEmail)
 		{
@@ -1027,7 +1071,8 @@ class Module extends \Aurora\System\Module\AbstractModule
 	 */
 	protected function getDomainForwarders($sEmail, $sDomain, $iTenantId = 0)
 	{
-		$oCpanel = $this->getCpanel($iTenantId);
+		$oUser = \Aurora\Modules\Core\Module::getInstance()->GetUserByPublicId($sEmail);
+		$oCpanel = $this->getCpanel($iTenantId, $oUser);
 		if ($oCpanel && $sDomain && $sEmail)
 		{
 			$sCpanelResponse = $this->executeCpanelAction($oCpanel, 'Email', 'list_forwarders',
@@ -1053,8 +1098,8 @@ class Module extends \Aurora\System\Module\AbstractModule
 	protected function getAutoresponder($sEmail, $iTenantId = 0)
 	{
 		$mResult = false;
-
-		$oCpanel = $this->getCpanel($iTenantId);
+		$oUser = \Aurora\Modules\Core\Module::getInstance()->GetUserByPublicId($sEmail);
+		$oCpanel = $this->getCpanel($iTenantId, $oUser);
 		if ($oCpanel && $sEmail)
 		{
 			$sCpanelResponse = $this->executeCpanelAction($oCpanel, 'Email', 'get_auto_responder',
@@ -1101,8 +1146,8 @@ class Module extends \Aurora\System\Module\AbstractModule
 		$aResult = [
 			'Status' => false
 		];
-
-		$oCpanel = $this->getCpanel($iTenantId);
+		$oUser = \Aurora\Modules\Core\Module::getInstance()->GetUserByPublicId($sEmail);
+		$oCpanel = $this->getCpanel($iTenantId, $oUser);
 		if ($oCpanel && $sDomain && $sEmail && $sSubject && $sMessage)
 		{
 			$iStartTime = 0;
@@ -1137,7 +1182,8 @@ class Module extends \Aurora\System\Module\AbstractModule
 	 */
 	protected function deleteAutoresponder($sEmail, $iTenantId = 0)
 	{
-		$oCpanel = $this->getCpanel($iTenantId);
+		$oUser = \Aurora\Modules\Core\Module::getInstance()->GetUserByPublicId($sEmail);
+		$oCpanel = $this->getCpanel($iTenantId, $oUser);
 		if ($oCpanel && $sEmail)
 		{
 			$sCpanelResponse = $this->executeCpanelAction($oCpanel, 'Email', 'delete_auto_responder',
@@ -1157,8 +1203,8 @@ class Module extends \Aurora\System\Module\AbstractModule
 	protected function getFilters($oAccount, $iTenantId = 0)
 	{
 		$aFilters = [];
-
-		$oCpanel = $this->getCpanel($iTenantId);
+		$oUser = \Aurora\Modules\Core\Module::getInstance()->GetUserByPublicId($oAccount->Email);
+		$oCpanel = $this->getCpanel($iTenantId, $oUser);
 		if ($oCpanel && $oAccount)
 		{
 			$sCpanelResponse = $this->executeCpanelAction($oCpanel, 'Email', 'list_filters',
@@ -1199,8 +1245,8 @@ class Module extends \Aurora\System\Module\AbstractModule
 					$aSuportedFilterNames = array_map(function ($aFilter) {
 						return $aFilter['Filtername'];
 					}, $aFilters);
-
-					$oCpanel = $this->getCpanel($iTenantId);
+					$oUser = \Aurora\Modules\Core\Module::getInstance()->GetUserByPublicId($oAccount->Email);
+					$oCpanel = $this->getCpanel($iTenantId, $oUser);
 					if ($oCpanel)
 					{
 						$bDelResult = true;
@@ -1499,6 +1545,7 @@ class Module extends \Aurora\System\Module\AbstractModule
 					'CpanelPort' => $oSettings->GetTenantValue($oTenant->Name, 'CpanelPort', ''),
 					'CpanelUser' => $oSettings->GetTenantValue($oTenant->Name, 'CpanelUser', ''),
 					'CpanelHasPassword' => $oSettings->GetTenantValue($oTenant->Name, 'CpanelPassword', '') !== '',
+					'CpanelUseDomainSettings' => $oTenant->{self::GetName() . '::UseDomainSettings'}
 				];
 			}
 		}
@@ -1519,7 +1566,7 @@ class Module extends \Aurora\System\Module\AbstractModule
 	 * @param int $ContactsPerPage Count of contacts per page.
 	 * @return boolean
 	 */
-	public function UpdateSettings($CpanelHost, $CpanelPort, $CpanelUser, $CpanelPassword, $TenantId = null)
+	public function UpdateSettings($CpanelHost, $CpanelPort, $CpanelUser, $CpanelPassword, $TenantId = null, $UseDomainSettings = false)
 	{
 		$oSettings = $this->GetModuleSettings();
 		if (!empty($TenantId))
@@ -1536,6 +1583,8 @@ class Module extends \Aurora\System\Module\AbstractModule
 				{
 					$oSettings->SetTenantValue($oTenant->Name, 'CpanelPassword', $CpanelPassword);
 				}
+				$oTenant->{self::GetName() . 'UseDomainSettings'} = $UseDomainSettings;
+				$oTenant->saveAttribute(self::GetName() . 'UseDomainSettings');
 				return $oSettings->SaveTenantSettings($oTenant->Name);
 			}
 		}
@@ -1599,7 +1648,7 @@ class Module extends \Aurora\System\Module\AbstractModule
 				}
 				$aForwardersFromEmail = [];
 				//filter forvarders
-				$aFilteredForwarders = $this->getAliasesFromForwarders($aForwarders, $oUser->IdTenant);
+				$aFilteredForwarders = $this->getAliasesFromForwarders($aForwarders, $oUser->IdTenant, $oUser);
 				foreach ($aFilteredForwarders as $oForwarder)
 				{
 					$sFromEmail = $oForwarder->dest;
@@ -1687,7 +1736,7 @@ class Module extends \Aurora\System\Module\AbstractModule
 			throw new \Aurora\System\Exceptions\ApiException(Enums\ErrorCodes::DomainOutsideTenant);
 		}
 		//Checking if an alias matches an existing account
-		$oCpanel = $this->getCpanel($oUser->IdTenant);
+		$oCpanel = $this->getCpanel($oUser->IdTenant, $oUser);
 		if ($oCpanel)
 		{
 			$sCpanelResponse = $this->executeCpanelAction($oCpanel, 'Email', 'list_pops', []);
@@ -1730,7 +1779,7 @@ class Module extends \Aurora\System\Module\AbstractModule
 			{
 				$aForwarders = array_merge($aForwarders, $this->getDomainForwarders($sEmail, $sServerDomain, $oUser->IdTenant));
 			}
-			$aDomainAliases = $this->getAliasesFromForwarders($aForwarders, $oUser->IdTenant);
+			$aDomainAliases = $this->getAliasesFromForwarders($aForwarders, $oUser->IdTenant, $oUser);
 			$aUserAliases = [];
 			foreach ($aDomainAliases as $oAlias)
 			{
@@ -1875,10 +1924,10 @@ class Module extends \Aurora\System\Module\AbstractModule
 		return $bResult;
 	}
 
-	protected function getAliasesFromForwarders($aForwarders, $iTenantId = 0)
+	protected function getAliasesFromForwarders($aForwarders, $iTenantId = 0, $oUser = null)
 	{
 		$aResult = [];
-		$oCpanel = $this->getCpanel($iTenantId);
+		$oCpanel = $this->getCpanel($iTenantId, $oUser);
 		if ($oCpanel)
 		{
 			$sCpanelResponse = $this->executeCpanelAction($oCpanel, 'Email', 'list_pops', []);
@@ -1930,7 +1979,7 @@ class Module extends \Aurora\System\Module\AbstractModule
 				$oUser = \Aurora\Modules\Core\Module::Decorator()->GetUserUnchecked($oAccount->IdUser);
 				if ($oUser instanceof \Aurora\Modules\Core\Classes\User)
 				{
-					$oCpanel = $this->getCpanel($oUser->IdTenant);
+					$oCpanel = $this->getCpanel($oUser->IdTenant, $oUser);
 					$sEmail = $oAccount->Email;
 					$sDomain = \MailSo\Base\Utils::GetDomainFromEmail($oUser->PublicId);
 					$sForwardScriptPath = $this->getConfig('ForwardScriptPath', \dirname(__FILE__) . DIRECTORY_SEPARATOR . 'scripts' . DIRECTORY_SEPARATOR . 'process_mail.php');
@@ -1988,7 +2037,7 @@ class Module extends \Aurora\System\Module\AbstractModule
 				$oUser = \Aurora\Modules\Core\Module::Decorator()->GetUserUnchecked($oAccount->IdUser);
 				if ($oUser instanceof \Aurora\Modules\Core\Classes\User)
 				{
-					$oCpanel = $this->getCpanel($oUser->IdTenant);
+					$oCpanel = $this->getCpanel($oUser->IdTenant, $oUser);
 					$sEmail = $oAccount->Email;
 					$sDomain = \MailSo\Base\Utils::GetDomainFromEmail($oUser->PublicId);
 					$sForwardScriptPath = $this->getConfig('ForwardScriptPath', \dirname(__FILE__) . DIRECTORY_SEPARATOR . 'scripts' . DIRECTORY_SEPARATOR . 'process_mail.php');
@@ -2052,5 +2101,50 @@ class Module extends \Aurora\System\Module\AbstractModule
 		}
 
 		return $bResult;
+	}
+
+	public function GetDomainSettings($DomainId)
+	{
+		\Aurora\Api::checkUserRoleIsAtLeast(\Aurora\System\Enums\UserRole::SuperAdmin);
+
+		$mResult = [
+			'CpanelHost' => '',
+			'CpanelPort' => '',
+			'CpanelUser' => '',
+			'CpanelPassword' => ''
+		];
+
+		$oDomain = \Aurora\Modules\MailDomains\Module::Decorator()->GetDomain($DomainId);
+		if ($oDomain instanceof Domain)
+		{
+			$mResult = [
+				'CpanelHost' => $oDomain->{self::GetName() . '::CpanelHost'},
+				'CpanelPort' => $oDomain->{self::GetName() . '::CpanelPort'},
+				'CpanelUser' => $oDomain->{self::GetName() . '::CpanelUser'},
+				'CpanelPassword' => $oDomain->{self::GetName() . '::CpanelPassword'}
+			];
+		}
+
+		return $mResult;
+	}
+
+	public function UpdateDomainSettings($DomainId, $CpanelHost, $CpanelPort, $CpanelUser, $CpanelPassword)
+	{
+		\Aurora\Api::checkUserRoleIsAtLeast(\Aurora\System\Enums\UserRole::SuperAdmin);
+		$oDomain = \Aurora\Modules\MailDomains\Module::Decorator()->GetDomain($DomainId);
+		if ($oDomain instanceof Domain)
+		{
+			$oDomain->{self::GetName() . '::CpanelHost'} = $CpanelHost;
+			$oDomain->{self::GetName() . '::CpanelPort'} = $CpanelPort;
+			$oDomain->{self::GetName() . '::CpanelUser'} = $CpanelUser;
+			$oDomain->{self::GetName() . '::CpanelPassword'} = $CpanelPassword;
+
+			$oDomain->saveAttributes([
+				self::GetName() . '::CpanelHost',
+				self::GetName() . '::CpanelPort',
+				self::GetName() . '::CpanelUser',
+				self::GetName() . '::CpanelPassword'
+			]);
+		}
 	}
 }

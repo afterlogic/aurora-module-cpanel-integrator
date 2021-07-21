@@ -1,11 +1,12 @@
 #!/usr/local/bin/php
 <?php
+
+require_once \dirname(__FILE__) . '/../../../system/autoload.php';
+
 if (!\Aurora\System\Utils::is_cli())
 {
     exit("Use console");
 }
-
-require_once \dirname(__FILE__) . '/../../../system/autoload.php';
 
 \Aurora\System\Api::Init();
 
