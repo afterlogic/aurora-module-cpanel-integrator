@@ -135,7 +135,7 @@ class Module extends \Aurora\System\Module\AbstractModule
 						$sHost = $oDomain->{self::GetName() . '::CpanelHost'};
 						$sPort = $oDomain->{self::GetName() . '::CpanelPort'};
 						$sUser = $oDomain->{self::GetName() . '::CpanelUser'};
-						$sPassword = $oDomain->{self::GetName() . '::CpanelPassword'};
+						$sPassword = \Aurora\System\Utils::DecryptValue($oDomain->{self::GetName() . '::CpanelPassword'});
 
 						$this->oCpanel[$iTenantId][$sDomainName] = new \Gufy\CpanelPhp\Cpanel([
 							'host' => "https://" . $sHost . ":" . $sPort,
@@ -2121,7 +2121,7 @@ class Module extends \Aurora\System\Module\AbstractModule
 				'CpanelHost' => $oDomain->{self::GetName() . '::CpanelHost'},
 				'CpanelPort' => $oDomain->{self::GetName() . '::CpanelPort'},
 				'CpanelUser' => $oDomain->{self::GetName() . '::CpanelUser'},
-				'CpanelPassword' => $oDomain->{self::GetName() . '::CpanelPassword'}
+//				'CpanelPassword' => $oDomain->{self::GetName() . '::CpanelPassword'}
 			];
 		}
 
@@ -2137,7 +2137,10 @@ class Module extends \Aurora\System\Module\AbstractModule
 			$oDomain->{self::GetName() . '::CpanelHost'} = $CpanelHost;
 			$oDomain->{self::GetName() . '::CpanelPort'} = $CpanelPort;
 			$oDomain->{self::GetName() . '::CpanelUser'} = $CpanelUser;
-			$oDomain->{self::GetName() . '::CpanelPassword'} = $CpanelPassword;
+			if (!empty($CpanelPassword))
+			{
+				$oDomain->{self::GetName() . '::CpanelPassword'} = \Aurora\System\Utils::EncryptValue($CpanelPassword);
+			}
 
 			$oDomain->saveAttributes([
 				self::GetName() . '::CpanelHost',
