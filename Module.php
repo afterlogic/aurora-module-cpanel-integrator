@@ -2130,6 +2130,8 @@ class Module extends \Aurora\System\Module\AbstractModule
 
 	public function UpdateDomainSettings($DomainId, $CpanelHost, $CpanelPort, $CpanelUser, $CpanelPassword)
 	{
+		$mResult = false;
+
 		\Aurora\Api::checkUserRoleIsAtLeast(\Aurora\System\Enums\UserRole::SuperAdmin);
 		$oDomain = \Aurora\Modules\MailDomains\Module::Decorator()->GetDomain($DomainId);
 		if ($oDomain instanceof Domain)
@@ -2142,12 +2144,14 @@ class Module extends \Aurora\System\Module\AbstractModule
 				$oDomain->{self::GetName() . '::CpanelPassword'} = \Aurora\System\Utils::EncryptValue($CpanelPassword);
 			}
 
-			$oDomain->saveAttributes([
+			$mResult = $oDomain->saveAttributes([
 				self::GetName() . '::CpanelHost',
 				self::GetName() . '::CpanelPort',
 				self::GetName() . '::CpanelUser',
 				self::GetName() . '::CpanelPassword'
 			]);
 		}
+
+		return $mResult;
 	}
 }
