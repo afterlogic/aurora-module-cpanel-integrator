@@ -16,6 +16,7 @@ module.exports = {
 	CpanelHasPassword: false,
 	AllowAliases: false,
 	AllowCreateDeleteAccountOnCpanel: false,
+	AllowDomainOverride: false,
 
 	/**
 	 * Initializes settings from AppData object sections.
@@ -34,6 +35,7 @@ module.exports = {
 			this.CpanelHasPassword = Types.pBool(oAppDataSection.CpanelHasPassword, this.CpanelHasPassword);
 			this.AllowAliases = Types.pBool(oAppDataSection.AllowAliases, this.AllowAliases);
 			this.AllowCreateDeleteAccountOnCpanel = Types.pBool(oAppDataSection.AllowCreateDeleteAccountOnCpanel, this.AllowCreateDeleteAccountOnCpanel);
+			this.AllowDomainOverride = Types.pBool(this.AllowDomainOverride);
 		}
 	},
 	

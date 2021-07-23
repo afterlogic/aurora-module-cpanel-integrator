@@ -28,6 +28,16 @@
 					<input class="input" autocomplete="new-password" type="password" data-bind="value: pass, valueUpdate: 'afterkeydown', onEnter: save" />
 				</span>
 			</div>
+			<div class="row" data-bind="if: showUseDomainSettings">
+				<!-- <span class="label" for="allowDomainOverride" data-bind="i18n: {'key': '%MODULENAME%/LABEL_CPANEL_ALLOW_DOMAIN_OVERRIDE'}"></span> -->
+				<span class="value">
+					<label class="custom_checkbox" data-bind="css: {'checked': useDomainSettings}">
+						<span class="icon"></span>
+						<input type="checkbox" id="useDomainSettings" data-bind="checked: useDomainSettings" />
+					</label>
+					<label for="useDomainSettings" data-bind="i18n: {'key': '%MODULENAME%/LABEL_CPANEL_ALLOW_DOMAIN_OVERRIDE'}"></label>
+				</span>
+			</div>
 		</div>		
 
 		<div class="buttons">
