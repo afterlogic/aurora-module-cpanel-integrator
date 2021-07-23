@@ -151,7 +151,7 @@ class Module extends \Aurora\System\Module\AbstractModule
 		}
 		if ($mResult !== null)
 		{
-			$$mResult->setTimeout(30);
+			$mResult->setTimeout(30);
 		}
 
 		return $mResult;
