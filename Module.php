@@ -1583,8 +1583,8 @@ class Module extends \Aurora\System\Module\AbstractModule
 				{
 					$oSettings->SetTenantValue($oTenant->Name, 'CpanelPassword', $CpanelPassword);
 				}
-				$oTenant->{self::GetName() . 'UseDomainSettings'} = $UseDomainSettings;
-				$oTenant->saveAttribute(self::GetName() . 'UseDomainSettings');
+				$oTenant->{self::GetName() . '::UseDomainSettings'} = $UseDomainSettings;
+				$oTenant->saveAttribute(self::GetName() . '::UseDomainSettings');
 				return $oSettings->SaveTenantSettings($oTenant->Name);
 			}
 		}
