@@ -1545,7 +1545,7 @@ class Module extends \Aurora\System\Module\AbstractModule
 					'CpanelPort' => $oSettings->GetTenantValue($oTenant->Name, 'CpanelPort', ''),
 					'CpanelUser' => $oSettings->GetTenantValue($oTenant->Name, 'CpanelUser', ''),
 					'CpanelHasPassword' => $oSettings->GetTenantValue($oTenant->Name, 'CpanelPassword', '') !== '',
-					'CpanelUseDomainSettings' => $oTenant->{self::GetName() . '::UseDomainSettings'}
+					'UseDomainSettings' => $oTenant->{self::GetName() . '::UseDomainSettings'}
 				];
 			}
 		}
@@ -1566,10 +1566,15 @@ class Module extends \Aurora\System\Module\AbstractModule
 	 * @param int $ContactsPerPage Count of contacts per page.
 	 * @return boolean
 	 */
-	public function UpdateSettings($CpanelHost, $CpanelPort, $CpanelUser, $CpanelPassword, $TenantId = null, $UseDomainSettings = false)
+	public function UpdateSettings($CpanelHost, $CpanelPort, $CpanelUser, $CpanelPassword, $TenantId = null, $UseDomainSettings = false, $DomainId = null)
 	{
 		$oSettings = $this->GetModuleSettings();
-		if (!empty($TenantId))
+
+		if (!empty($DomainId))
+		{
+			return $this->UpdateDomainSettings($DomainId, $CpanelHost, $CpanelPort, $CpanelUser, $CpanelPassword);
+		}
+		else if (!empty($TenantId))
 		{
 			\Aurora\System\Api::checkUserRoleIsAtLeast(\Aurora\System\Enums\UserRole::TenantAdmin);
 			$oTenant = \Aurora\System\Api::getTenantById($TenantId);
@@ -2121,7 +2126,7 @@ class Module extends \Aurora\System\Module\AbstractModule
 				'CpanelHost' => $oDomain->{self::GetName() . '::CpanelHost'},
 				'CpanelPort' => $oDomain->{self::GetName() . '::CpanelPort'},
 				'CpanelUser' => $oDomain->{self::GetName() . '::CpanelUser'},
-//				'CpanelPassword' => $oDomain->{self::GetName() . '::CpanelPassword'}
+				'CpanelHasPassword' => !empty($oDomain->{self::GetName() . '::CpanelPassword'})
 			];
 		}
 
