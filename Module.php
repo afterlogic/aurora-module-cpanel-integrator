@@ -7,6 +7,9 @@
 
 namespace Aurora\Modules\CpanelIntegrator;
 
+use Aurora\Modules\Core\Classes\Tenant;
+use Aurora\Modules\MailDomains\Classes\Domain;
+
 /**
  * @license https://www.gnu.org/licenses/agpl-3.0.html AGPL-3.0
  * @license https://afterlogic.com/products/common-licensing Afterlogic Software License
@@ -64,6 +67,17 @@ class Module extends \Aurora\System\Module\AbstractModule
 		$this->subscribeEvent('Mail::DeleteServer::before', array($this, 'onBeforeDeleteEntities'));
 		$this->subscribeEvent('MailDomains::DeleteDomains::before', array($this, 'onBeforeDeleteEntities'));
 		$this->subscribeEvent('Mail::IsEmailAllowedForCreation::after', array($this, 'onAfterIsEmailAllowedForCreation'));
+
+		Tenant::extend(self::GetName(), [
+			'UseDomainSettings'	=> array('bool', false, true)
+		]);
+
+		Domain::extend(self::GetName(), [
+			'CpanelHost'		=> array('string', '', true),
+			'CpanelPort'		=> array('string', '', true),
+			'CpanelUser'		=> array('string', '', true),
+			'CpanelPassword'	=> array('string', '', true),
+		]);
 
 	}
 
