@@ -15,7 +15,8 @@
               <span class="text-h6"><b>@</b></span>
             </div>
             <div>
-              <q-select outlined dense bg-color="white" class="domains-select" v-model="selectedDomain" :options="domainsList"/>
+              <q-select outlined dense bg-color="white" class="domains-select" v-model="selectedDomain"
+                        :options="domains" option-label="name"/>
             </div>
             <div class="col-3 q-mt-xs q-ml-md">
               <q-btn unelevated no-caps no-wrap dense class="q-ml-md q-px-sm" :disable="!aliasName.length" :ripple="false" color="primary"
@@ -48,63 +49,86 @@
 </template>
 
 <script>
+import _ from 'lodash'
+
 import webApi from 'src/utils/web-api'
 import errors from 'src/utils/errors'
 import notification from 'src/utils/notification'
 
-import types from 'src/utils/types'
+import typesUtils from 'src/utils/types'
 
 export default {
   name: 'CpanelAliasesAdminSettingsPerUser',
 
-  mounted () {
-    this.parseRoute()
-  },
   data () {
     return {
       loading: false,
       saving: false,
       deleting: false,
       aliasName: '',
-      selectedDomain: '',
+      selectedDomain: null,
       selectedAliases: [],
       aliasesList: [],
-      domainsList: [],
       user: null
     }
   },
+
   computed: {
     currentTenantId () {
       return this.$store.getters['tenants/getCurrentTenantId']
     },
+
     domains () {
-      return types.pArray(this.$store.getters['maildomains/getDomains'])
+      const allDomainLists = this.$store.getters['maildomains/getDomains']
+      return typesUtils.pArray(allDomainLists[this.currentTenantId])
     }
   },
+
   watch: {
     domains () {
-      this.generateDomains()
-    },
-  },
-  methods: {
-    generateDomains () {
-      this.domainsList = this.domains[this.currentTenantId].map(domain => {
-        return {
-          value: domain.Id,
-          label: domain.Name
-        }
-      })
-      if (this.domainsList.length > 0) {
-        this.selectedDomain = this.domainsList[0]
+      if (this.domains.length > 0) {
+        this.selectedDomain = this.domains[0]
       }
     },
+  },
+
+  beforeRouteLeave (to, from, next) {
+    this.doBeforeRouteLeave(to, from, next)
+  },
+
+  mounted () {
+    this.requestDomains()
+    this.parseRoute()
+    if (this.selectedDomain === null && this.domains.length > 0) {
+      this.selectedDomain = this.domains[0]
+    }
+  },
+
+  methods: {
+    /**
+     * Method is used in doBeforeRouteLeave mixin
+     */
+    hasChanges () {
+      return this.aliasName !== ''
+    },
+
+    /**
+     * Method is used in doBeforeRouteLeave mixin,
+     * do not use async methods - just simple and plain reverting of values
+     * !! hasChanges method must return true after executing revertChanges method
+     */
+    revertChanges () {
+      this.aliasName = ''
+    },
+
     requestDomains () {
-      this.$store.dispatch('maildomains/requestDomains', {
+      this.$store.dispatch('maildomains/requestDomainsIfNecessary', {
         tenantId: this.currentTenantId
       })
     },
+
     parseRoute () {
-      const userId = types.pPositiveInt(this.$route?.params?.id)
+      const userId = typesUtils.pPositiveInt(this.$route?.params?.id)
       if (this.user?.id !== userId) {
         this.user = {
           id: userId,
@@ -112,19 +136,21 @@ export default {
         this.populate()
       }
     },
+
     populate () {
-      this.generateDomains()
       this.getSettings()
     },
+
     addNewAlias () {
       if (!this.saving) {
         this.saving = true
         const parameters = {
           UserId: this.user?.id,
           AliasName: this.aliasName,
-          AliasDomain: this.selectedDomain.label,
+          AliasDomain: this.selectedDomain?.name,
           TenantId: this.currentTenantId,
         }
+        console.log('parameters', parameters)
         webApi.sendRequest({
           moduleName: 'CpanelIntegrator',
           methodName: 'AddNewAlias',
@@ -143,6 +169,7 @@ export default {
         })
       }
     },
+
     deleteAliasesList () {
       if (!this.deleting) {
         this.deleting = true
@@ -171,6 +198,7 @@ export default {
         }
       }
     },
+
     getSettings() {
       this.loading = true
       const parameters = {
@@ -183,7 +211,7 @@ export default {
         parameters
       }).then(result => {
         this.loading = false
-        if (types.pArray(result.Aliases)) {
+        if (_.isArray(result.Aliases)) {
           this.aliasesList = result.Aliases
         }
       },
