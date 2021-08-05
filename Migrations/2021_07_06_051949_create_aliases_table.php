@@ -21,7 +21,7 @@ class CreateAliasesTable extends Migration
             $table->string('ForwardTo')->default('');
             $table->string('FriendlyName')->default('');
             $table->boolean('UseSignature')->default(false);
-            $table->text('Signature')->default('');
+            $table->text('Signature');
             $table->timestamp(\Aurora\System\Classes\Model::CREATED_AT)->nullable();
             $table->timestamp(\Aurora\System\Classes\Model::UPDATED_AT)->nullable();
         });
