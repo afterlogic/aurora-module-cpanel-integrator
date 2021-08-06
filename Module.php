@@ -67,18 +67,6 @@ class Module extends \Aurora\System\Module\AbstractModule
 		$this->subscribeEvent('Mail::DeleteServer::before', array($this, 'onBeforeDeleteEntities'));
 		$this->subscribeEvent('MailDomains::DeleteDomains::before', array($this, 'onBeforeDeleteEntities'));
 		$this->subscribeEvent('Mail::IsEmailAllowedForCreation::after', array($this, 'onAfterIsEmailAllowedForCreation'));
-
-		Tenant::extend(self::GetName(), [
-			'UseDomainSettings'	=> array('bool', false, true)
-		]);
-
-		Domain::extend(self::GetName(), [
-			'CpanelHost'		=> array('string', '', true),
-			'CpanelPort'		=> array('string', '', true),
-			'CpanelUser'		=> array('string', '', true),
-			'CpanelPassword'	=> array('string', '', true),
-		]);
-
 	}
 
 	public function getManager($sManager)
