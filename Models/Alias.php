@@ -21,6 +21,7 @@ class Alias extends Model
 	protected $table = 'cpanel_aliases';
 	
 	protected $fillable = [
+		'Id',
 		'IdUser',
 		'IdAccount',
 		'Email',
