@@ -100,6 +100,10 @@ export default {
      * Method is used in doBeforeRouteLeave mixin
      */
     hasChanges () {
+      if (this.loading) {
+        return false
+      }
+
       const tenantCompleteData = types.pObject(this.tenant?.completeData)
       const cpanelPort = tenantCompleteData['CpanelIntegrator::CpanelPort']
       return this.cpanelHost !== tenantCompleteData['CpanelIntegrator::CpanelHost'] ||
