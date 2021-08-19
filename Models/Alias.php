@@ -19,6 +19,9 @@ use Aurora\System\Classes\Model;
 class Alias extends Model
 {
 	protected $table = 'cpanel_aliases';
+
+	protected $foreignModel = 'Aurora\Modules\Mail\Models\MailAccount';
+	protected $foreignModelIdColumn = 'IdAccount'; // Column that refers to an external table
 	
 	protected $fillable = [
 		'IdUser',
