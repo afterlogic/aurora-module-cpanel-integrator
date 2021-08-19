@@ -30,4 +30,19 @@ class Alias extends Model
 		'UseSignature',
 		'Signature'
 	];
+
+	protected $appends = [
+        'EntityId'
+    ];
+
+    public function getEntityIdAttribute()
+    {
+        return $this->Id;
+    }
+
+	public function __construct(array $attributes = [])
+    {
+		parent::__construct($attributes);
+		$this->Signature = '';
+	}
 }
