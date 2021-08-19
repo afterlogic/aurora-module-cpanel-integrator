@@ -1611,15 +1611,16 @@ class Module extends \Aurora\System\Module\AbstractModule
 						$aForwardersFromEmail[] = $sFromEmail;
 					}
 				}
-				$aAliasesEmail = array_map(function($oAlias) {
+				$aAliasesEmail = $aAliases->map(function($oAlias) {
 					return $oAlias->Email;
-				}, $aAliases);
+				})->toArray();
+
 				foreach ($aForwardersFromEmail as $sForwarderFromEmail)
 				{
 					if (!in_array($sForwarderFromEmail, $aAliasesEmail))
 					{
 						//Check if an alias exists in EAV
-						$aAliasesCheck = $this->getManager('Aliases')->getAliases(0, 0, ['Email' => $sForwarderFromEmail]);
+						$aAliasesCheck = $this->getManager('Aliases')->getAliases(0, 0, Models\Alias::where('Email', $sForwarderFromEmail));
 						if (empty($aAliasesCheck))
 						{
 							//create eav-alias if doesn't exists
@@ -1645,7 +1646,7 @@ class Module extends \Aurora\System\Module\AbstractModule
 			return [
 				'Domain'		=> $sDomain,
 				'Aliases'		=> $aForwardersFromEmail,
-				'ObjAliases'	=> $aAliases
+				'ObjAliases'	=> $aAliases->toArray()
 			];
 		}
 
@@ -1715,7 +1716,7 @@ class Module extends \Aurora\System\Module\AbstractModule
 		}
 		//Check if an alias exists in EAV
 		$aAliases = $this->getManager('Aliases')->getAliases(0, 0, Models\Alias::where('Email', $AliasName . '@' . $AliasDomain));
-		if (!empty($aAliases))
+		if ($aAliases->count() > 0)
 		{
 			throw new \Aurora\System\Exceptions\ApiException(Enums\ErrorCodes::AliasAlreadyExists);
 		}
