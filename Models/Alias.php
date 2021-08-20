@@ -8,6 +8,7 @@
 namespace Aurora\Modules\CpanelIntegrator\Models;
 
 use Aurora\System\Classes\Model;
+use Aurora\Modules\Mail\Models\MailAccount;
 
 /**
  * @license https://www.gnu.org/licenses/agpl-3.0.html AGPL-3.0
@@ -20,7 +21,7 @@ class Alias extends Model
 {
 	protected $table = 'cpanel_aliases';
 
-	protected $foreignModel = 'Aurora\Modules\Mail\Models\MailAccount';
+	protected $foreignModel = MailAccount::class;
 	protected $foreignModelIdColumn = 'IdAccount'; // Column that refers to an external table
 	
 	protected $fillable = [
