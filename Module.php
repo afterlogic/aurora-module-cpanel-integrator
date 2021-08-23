@@ -119,14 +119,14 @@ class Module extends \Aurora\System\Module\AbstractModule
 					$sPort = $oSettings->GetTenantValue($oTenant->Name, 'CpanelPort', '');
 					$sUser = $oSettings->GetTenantValue($oTenant->Name, 'CpanelUser', '');
 					$sPassword = $oSettings->GetTenantValue($oTenant->Name, 'CpanelPassword', '');
-				}
 
-				$this->oCpanel[$iTenantId] = new \Gufy\CpanelPhp\Cpanel([
-					'host' => "https://" . $sHost . ":" . $sPort,
-					'username' => $sUser,
-					'auth_type' => 'password',
-					'password' => $sPassword,
-				]);
+					$this->oCpanel[$iTenantId] = new \Gufy\CpanelPhp\Cpanel([
+						'host' => "https://" . $sHost . ":" . $sPort,
+						'username' => $sUser,
+						'auth_type' => 'password',
+						'password' => $sPassword,
+					]);
+				}
 
 				$mResult = $this->oCpanel[$iTenantId];
 			}
@@ -143,14 +143,14 @@ class Module extends \Aurora\System\Module\AbstractModule
 						$sUser = $oDomain->{self::GetName() . '::CpanelUser'};
 						$sPassword = \Aurora\System\Utils::DecryptValue($oDomain->{self::GetName() . '::CpanelPassword'});
 					}
-				}
 
-				$this->oCpanel[$iTenantId][$sDomainName] = new \Gufy\CpanelPhp\Cpanel([
-					'host' => "https://" . $sHost . ":" . $sPort,
-					'username' => $sUser,
-					'auth_type' => 'password',
-					'password' => $sPassword,
-				]);	
+					$this->oCpanel[$iTenantId][$sDomainName] = new \Gufy\CpanelPhp\Cpanel([
+						'host' => "https://" . $sHost . ":" . $sPort,
+						'username' => $sUser,
+						'auth_type' => 'password',
+						'password' => $sPassword,
+					]);	
+				}
 					
 				$mResult = $this->oCpanel[$iTenantId][$sDomainName];
 			}
