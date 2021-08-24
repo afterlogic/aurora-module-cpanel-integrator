@@ -99,62 +99,79 @@ class Module extends \Aurora\System\Module\AbstractModule
 	protected function getCpanel($iTenantId = 0, $oUser = null)
 	{
 		$mResult = null;
-		$oAuthenticatedUser = \Aurora\System\Api::getAuthenticatedUser();
 
-		$sHost = $this->getConfig('CpanelHost', '');
-		$sPort = $this->getConfig('CpanelPort', '');
-		$sUser = $this->getConfig('CpanelUser', '');
-		$sPassword = $this->getConfig('CpanelPassword', '');
+		if ($iTenantId === 0)
+		{
+			$sHost = $this->getConfig('CpanelHost', '');
+			$sPort = $this->getConfig('CpanelPort', '');
+			$sUser = $this->getConfig('CpanelUser', '');
+			$sPassword = $this->getConfig('CpanelPassword', '');
 
-		if ($iTenantId !== 0)
+			if (!isset($this->oCpanel[$iTenantId]))
+			{
+				$this->oCpanel[$iTenantId] = new \Gufy\CpanelPhp\Cpanel([
+					'host' => "https://" . $sHost . ":" . $sPort,
+					'username' => $sUser,
+					'auth_type' => 'password',
+					'password' => $sPassword,
+				]);
+			}
+
+			$mResult = $this->oCpanel[$iTenantId];
+		}
+		else
 		{
 			$oTenant = \Aurora\System\Api::getTenantById($iTenantId);
-			if (!$oTenant->{self::GetName() . '::UseDomainSettings'}) 
+			if ($oTenant)
 			{
-				if (!isset($this->oCpanel[$iTenantId])/* && $oAuthenticatedUser->Role === \Aurora\System\Enums\UserRole::SuperAdmin*/)
+				if (!$oTenant->{self::GetName() . '::UseDomainSettings'}) 
 				{
-					$oSettings = $this->GetModuleSettings();
-
-					$sHost = $oSettings->GetTenantValue($oTenant->Name, 'CpanelHost', '');
-					$sPort = $oSettings->GetTenantValue($oTenant->Name, 'CpanelPort', '');
-					$sUser = $oSettings->GetTenantValue($oTenant->Name, 'CpanelUser', '');
-					$sPassword = $oSettings->GetTenantValue($oTenant->Name, 'CpanelPassword', '');
-
-					$this->oCpanel[$iTenantId] = new \Gufy\CpanelPhp\Cpanel([
-						'host' => "https://" . $sHost . ":" . $sPort,
-						'username' => $sUser,
-						'auth_type' => 'password',
-						'password' => $sPassword,
-					]);
-				}
-
-				$mResult = $this->oCpanel[$iTenantId];
-			}
-			else if ($oUser instanceof \Aurora\Modules\Core\Classes\User) 
-			{
-				$sDomainName = \MailSo\Base\Utils::GetDomainFromEmail($oUser->PublicId);
-				if (!isset($this->oCpanel[$iTenantId][$sDomainName])/* && $oAuthenticatedUser->Role === \Aurora\System\Enums\UserRole::SuperAdmin*/) 
-				{
-					$oDomain = \Aurora\Modules\MailDomains\Module::getInstance()->getDomainsManager()->getDomainByName($sDomainName, $iTenantId);
-					if ($oDomain instanceof Domain) 
+					if (!isset($this->oCpanel[$iTenantId]))
 					{
-						$sHost = $oDomain->{self::GetName() . '::CpanelHost'};
-						$sPort = $oDomain->{self::GetName() . '::CpanelPort'};
-						$sUser = $oDomain->{self::GetName() . '::CpanelUser'};
-						$sPassword = \Aurora\System\Utils::DecryptValue($oDomain->{self::GetName() . '::CpanelPassword'});
+						$oSettings = $this->GetModuleSettings();
+
+						$sHost = $oSettings->GetTenantValue($oTenant->Name, 'CpanelHost', '');
+						$sPort = $oSettings->GetTenantValue($oTenant->Name, 'CpanelPort', '');
+						$sUser = $oSettings->GetTenantValue($oTenant->Name, 'CpanelUser', '');
+						$sPassword = $oSettings->GetTenantValue($oTenant->Name, 'CpanelPassword', '');
+
+						$this->oCpanel[$iTenantId] = new \Gufy\CpanelPhp\Cpanel([
+							'host' => "https://" . $sHost . ":" . $sPort,
+							'username' => $sUser,
+							'auth_type' => 'password',
+							'password' => $sPassword,
+						]);
 					}
 
-					$this->oCpanel[$iTenantId][$sDomainName] = new \Gufy\CpanelPhp\Cpanel([
-						'host' => "https://" . $sHost . ":" . $sPort,
-						'username' => $sUser,
-						'auth_type' => 'password',
-						'password' => $sPassword,
-					]);	
+					$mResult = $this->oCpanel[$iTenantId];
 				}
-					
-				$mResult = $this->oCpanel[$iTenantId][$sDomainName];
+				else if ($oUser instanceof \Aurora\Modules\Core\Classes\User) 
+				{
+					$sDomainName = \MailSo\Base\Utils::GetDomainFromEmail($oUser->PublicId);
+					if (!isset($this->oCpanel[$iTenantId][$sDomainName]))
+					{
+						$oDomain = \Aurora\Modules\MailDomains\Module::getInstance()->getDomainsManager()->getDomainByName($sDomainName, $iTenantId);
+						if ($oDomain instanceof Domain) 
+						{
+							$sHost = $oDomain->{self::GetName() . '::CpanelHost'};
+							$sPort = $oDomain->{self::GetName() . '::CpanelPort'};
+							$sUser = $oDomain->{self::GetName() . '::CpanelUser'};
+							$sPassword = \Aurora\System\Utils::DecryptValue($oDomain->{self::GetName() . '::CpanelPassword'});
+						}
+
+						$this->oCpanel[$iTenantId][$sDomainName] = new \Gufy\CpanelPhp\Cpanel([
+							'host' => "https://" . $sHost . ":" . $sPort,
+							'username' => $sUser,
+							'auth_type' => 'password',
+							'password' => $sPassword,
+						]);	
+					}
+						
+					$mResult = $this->oCpanel[$iTenantId][$sDomainName];
+				}
 			}
 		}
+
 		if ($mResult !== null)
 		{
 			$mResult->setTimeout(30);
