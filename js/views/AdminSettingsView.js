@@ -15,7 +15,7 @@ var
 /**
 * @constructor
 */
-function СAdminSettingsView()
+function CAdminSettingsView()
 {
 	CAbstractSettingsFormView.call(this, Settings.ServerModuleName);
 	
@@ -29,11 +29,11 @@ function СAdminSettingsView()
 	/*-- Editable fields */
 }
 
-_.extendOwn(СAdminSettingsView.prototype, CAbstractSettingsFormView.prototype);
+_.extendOwn(CAdminSettingsView.prototype, CAbstractSettingsFormView.prototype);
 
-СAdminSettingsView.prototype.ViewTemplate = '%ModuleName%_AdminSettingsView';
+CAdminSettingsView.prototype.ViewTemplate = '%ModuleName%_AdminSettingsView';
 
-СAdminSettingsView.prototype.getCurrentValues = function()
+CAdminSettingsView.prototype.getCurrentValues = function()
 {
 	return [
 		this.host(),
@@ -43,7 +43,7 @@ _.extendOwn(СAdminSettingsView.prototype, CAbstractSettingsFormView.prototype);
 	];
 };
 
-СAdminSettingsView.prototype.revertGlobalValues = function()
+CAdminSettingsView.prototype.revertGlobalValues = function()
 {
 	this.host(Settings.CpanelHost);
 	this.port(Settings.CpanelPort);
@@ -51,7 +51,7 @@ _.extendOwn(СAdminSettingsView.prototype, CAbstractSettingsFormView.prototype);
 	this.pass(Settings.CpanelHasPassword ? this.sFakePass : '');
 };
 
-СAdminSettingsView.prototype.getParametersForSave = function ()
+CAdminSettingsView.prototype.getParametersForSave = function ()
 {
 	var oParameters = {
 		'CpanelHost': this.host(),
@@ -71,7 +71,7 @@ _.extendOwn(СAdminSettingsView.prototype, CAbstractSettingsFormView.prototype);
  * 
  * @param {Object} oParameters Parameters which were saved on the server side.
  */
-СAdminSettingsView.prototype.applySavedValues = function (oParameters)
+CAdminSettingsView.prototype.applySavedValues = function (oParameters)
 {
 	if (!Types.isPositiveNumber(this.iTenantId))
 	{
@@ -79,18 +79,18 @@ _.extendOwn(СAdminSettingsView.prototype, CAbstractSettingsFormView.prototype);
 	}
 };
 
-СAdminSettingsView.prototype.setAccessLevel = function (sEntityType, iEntityId)
+CAdminSettingsView.prototype.setAccessLevel = function (sEntityType, iEntityId)
 {
 	this.visible(sEntityType === '' || sEntityType === 'Tenant');
 	this.iTenantId = iEntityId;
 };
 
-СAdminSettingsView.prototype.onRouteChild = function (aParams)
+CAdminSettingsView.prototype.onRouteChild = function (aParams)
 {
 	this.requestPerTenantSettings();
 };
 
-СAdminSettingsView.prototype.requestPerTenantSettings = function ()
+CAdminSettingsView.prototype.requestPerTenantSettings = function ()
 {
 	if (Types.isPositiveNumber(this.iTenantId))
 	{
@@ -120,7 +120,7 @@ _.extendOwn(СAdminSettingsView.prototype, CAbstractSettingsFormView.prototype);
  * 
  * @param {Object} oParameters Parameters which were saved on the server side.
  */
-СAdminSettingsView.prototype.applySavedValues = function (oParameters)
+CAdminSettingsView.prototype.applySavedValues = function (oParameters)
 {
 	if (!oParameters.TenantId)
 	{
@@ -128,4 +128,4 @@ _.extendOwn(СAdminSettingsView.prototype, CAbstractSettingsFormView.prototype);
 	}
 };
 
-module.exports = new СAdminSettingsView();
+module.exports = new CAdminSettingsView();
