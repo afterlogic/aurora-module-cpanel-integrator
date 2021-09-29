@@ -9,6 +9,7 @@ namespace Aurora\Modules\CpanelIntegrator;
 
 use Aurora\Modules\Core\Classes\Tenant;
 use Aurora\Modules\MailDomains\Classes\Domain;
+use Aurora\System\Exceptions\ApiException;
 
 /**
  * @license https://www.gnu.org/licenses/agpl-3.0.html AGPL-3.0
@@ -95,7 +96,7 @@ class Module extends \Aurora\System\Module\AbstractModule
 			$sPassword = $this->getConfig('CpanelPassword', '');
 
 			$oAuthenticatedUser = \Aurora\System\Api::getAuthenticatedUser();
-			if ($iTenantId !== 0 && $oAuthenticatedUser->Role === \Aurora\System\Enums\UserRole::SuperAdmin)
+			if ($iTenantId !== 0 && $oAuthenticatedUser && $oAuthenticatedUser->Role === \Aurora\System\Enums\UserRole::SuperAdmin)
 			{
 				$oSettings = $this->GetModuleSettings();
 				$oTenant = \Aurora\System\Api::getTenantById($iTenantId);
@@ -145,7 +146,6 @@ class Module extends \Aurora\System\Module\AbstractModule
 	{
 		if (isset($aArgs['Login']) && isset($aArgs['Password']) && !empty(trim($aArgs['Password'])) && !empty(trim($aArgs['Login'])))
 		{
-			$bResult = false;
 			$sLogin = trim($aArgs['Login']);
 			$sPassword = trim($aArgs['Password']);
 			$sFriendlyName = isset($aArgs['Name']) ? trim($aArgs['Name']) : '';
@@ -181,7 +181,9 @@ class Module extends \Aurora\System\Module\AbstractModule
 							$aParseResult = self::parseResponse($sCpanelResponse, false);
 						}
 						catch(\Exception $oException)
-						{}
+						{
+							throw new ApiException(0, $oException, $oException->getMessage());
+						}
 						if (is_array($aParseResult) && isset($aParseResult['Data']) && !empty($aParseResult['Data']))
 						{
 							try
@@ -191,7 +193,6 @@ class Module extends \Aurora\System\Module\AbstractModule
 								\Aurora\System\Api::skipCheckUserRole($bPrevState);
 								if ($oAccount instanceof \Aurora\Modules\Mail\Models\MailAccount)
 								{
-									$bResult = true;
 									$iTime = $bSignMe ? 0 : time();
 									$sAuthToken = \Aurora\System\Api::UserSession()->Set(
 										[
