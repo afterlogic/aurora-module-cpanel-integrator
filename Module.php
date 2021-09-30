@@ -218,7 +218,10 @@ class Module extends \Aurora\System\Module\AbstractModule
 						else if (is_array($aParseResult) && isset($aParseResult['Error']))
 						{
 							//If Account wasn't created - delete user
+							$bPrevState = \Aurora\System\Api::skipCheckUserRole(true);
+							\Aurora\Api::GrantAdminPrivileges();
 							\Aurora\Modules\Core\Module::Decorator()->DeleteUser($oUser->Id);
+							\Aurora\System\Api::skipCheckUserRole($bPrevState);
 							throw new \Exception($aParseResult['Error']);
 						}
 					}
