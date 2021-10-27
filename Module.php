@@ -503,11 +503,12 @@ class Module extends \Aurora\System\Module\AbstractModule
 	{
 		$bPasswordChanged = false;
 		$bBreakSubscriptions = false;
-
+		
+		$oUser = \Aurora\System\Api::getAuthenticatedUser();
 		$oAccount = $aArguments['Account'];
 		if ($oAccount instanceof \Aurora\Modules\Mail\Classes\Account
 				&& $this->isAccountServerSupported($oAccount)
-				&& ($oAccount->getPassword() === $aArguments['CurrentPassword'] || isset($aArguments['SkipCurrentPasswordCheck']) && $aArguments['SkipCurrentPasswordCheck']))
+				&& ($oUser->Role === \Aurora\System\Enums\UserRole::SuperAdmin || $oAccount->getPassword() === $aArguments['CurrentPassword'] || isset($aArguments['SkipCurrentPasswordCheck']) && $aArguments['SkipCurrentPasswordCheck']))
 		{
 			$bPasswordChanged = $this->changePassword($oAccount, $aArguments['NewPassword']);
 			$bBreakSubscriptions = true; // break if Cpanel plugin tries to change password in this account.
