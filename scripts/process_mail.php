@@ -1,4 +1,3 @@
-#!/usr/local/bin/php
 <?php
 if (PHP_SAPI !== 'cli')
 {

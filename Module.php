@@ -188,9 +188,7 @@ class Module extends \Aurora\System\Module\AbstractModule
 						{
 							try
 							{
-								$bPrevState = \Aurora\System\Api::skipCheckUserRole(true);
 								$oAccount = \Aurora\Modules\Mail\Module::Decorator()->CreateAccount($oUser->Id, $sFriendlyName, $sLogin, $sLogin, $sPassword);
-								\Aurora\System\Api::skipCheckUserRole($bPrevState);
 								if ($oAccount instanceof \Aurora\Modules\Mail\Models\MailAccount)
 								{
 									$iTime = $bSignMe ? 0 : time();
@@ -219,7 +217,6 @@ class Module extends \Aurora\System\Module\AbstractModule
 						{
 							//If Account wasn't created - delete user
 							$bPrevState = \Aurora\System\Api::skipCheckUserRole(true);
-							\Aurora\Api::GrantAdminPrivileges();
 							\Aurora\Modules\Core\Module::Decorator()->DeleteUser($oUser->Id);
 							\Aurora\System\Api::skipCheckUserRole($bPrevState);
 							throw new \Exception($aParseResult['Error']);
