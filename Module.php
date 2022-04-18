@@ -446,7 +446,9 @@ class Module extends \Aurora\System\Module\AbstractModule
 	public function onBeforeSendOrSaveMessage(&$aArgs, &$mResult)
 	{
 		$oUser = \Aurora\System\Api::getAuthenticatedUser();
-		$oAlias = $this->getManager('Aliases')->getAlias((int) $aArgs['AliasID']);
+		$oAlias = isset($aArgs['AliasID'])
+				? $this->getManager('Aliases')->getAlias((int) $aArgs['AliasID'])
+				: null;
 		if ($oAlias instanceof \Aurora\Modules\CpanelIntegrator\Classes\Alias
 			&& $oUser instanceof \Aurora\Modules\Core\Classes\User
 			&& $oAlias->IdUser === $oUser->EntityId
