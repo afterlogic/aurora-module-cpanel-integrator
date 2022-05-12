@@ -32,6 +32,8 @@ function СAdminSettingsView()
 	this.pass = ko.observable(Settings.CpanelHasPassword ? this.sFakePass : '');
 	this.useDomainSettings = ko.observable(Settings.UseDomainSettings);
 	/*-- Editable fields */
+
+	this.checkScript = ko.observable(true);
 }
 
 _.extendOwn(СAdminSettingsView.prototype, CAbstractSettingsFormView.prototype);
@@ -139,6 +141,12 @@ _.extendOwn(СAdminSettingsView.prototype, CAbstractSettingsFormView.prototype);
 				this.pass(oResponse.Result.CpanelHasPassword ? this.sFakePass : '');
 				this.useDomainSettings(oResponse.Result.UseDomainSettings);
 				this.updateSavedState();
+
+				this.checkProcessMailScript({
+					'CpanelUser': this.user(), 
+					'TenantId': this.iTenantId, 
+					'DomainId': null
+				});
 			}
 		}, this);
 	}
@@ -164,6 +172,12 @@ _.extendOwn(СAdminSettingsView.prototype, CAbstractSettingsFormView.prototype);
 				this.user(oResponse.Result.CpanelUser);
 				this.pass(oResponse.Result.CpanelHasPassword ? this.sFakePass : '');
 				this.updateSavedState();
+
+				this.checkProcessMailScript({
+					'CpanelUser': this.user(), 
+					'TenantId': this.iTenantId, 
+					'DomainId': this.iEntityId
+				});
 			}
 		}, this);
 	}
@@ -184,6 +198,16 @@ _.extendOwn(СAdminSettingsView.prototype, CAbstractSettingsFormView.prototype);
 	{
 		Settings.updateAdmin(oParameters.CpanelHost, oParameters.CpanelPort, oParameters.CpanelUser);
 	}
+	this.checkProcessMailScript(oParameters);
 };
+
+
+СAdminSettingsView.prototype.checkProcessMailScript = function (oParameters)
+{
+	Ajax.send(Settings.ServerModuleName, 'CheckProcessMailScript', oParameters, function (oResponse) {
+		this.checkScript(oResponse.Result);
+	}, this);
+};
+
 
 module.exports = new СAdminSettingsView();

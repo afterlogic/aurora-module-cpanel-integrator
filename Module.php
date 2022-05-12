@@ -7,8 +7,10 @@
 
 namespace Aurora\Modules\CpanelIntegrator;
 
+use Aurora\Api;
 use Aurora\Modules\Core\Classes\Tenant;
 use Aurora\Modules\MailDomains\Classes\Domain;
+use Aurora\System\Enums\UserRole;
 
 /**
  * @license https://www.gnu.org/licenses/agpl-3.0.html AGPL-3.0
@@ -96,7 +98,7 @@ class Module extends \Aurora\System\Module\AbstractModule
 	 * @param int $iTenantId
 	 * @return object
 	 */
-	protected function getCpanel($iTenantId = 0, $oUser = null)
+	protected function getCpanel($iTenantId = 0, $oEntity = null)
 	{
 		$mResult = null;
 
@@ -145,12 +147,18 @@ class Module extends \Aurora\System\Module\AbstractModule
 
 					$mResult = $this->oCpanel[$iTenantId];
 				}
-				else if ($oUser instanceof \Aurora\Modules\Core\Classes\User) 
+				else if ($oEntity instanceof \Aurora\Modules\Core\Classes\User || $oEntity instanceof \Aurora\Modules\MailDomains\Classes\Domain) 
 				{
-					$sDomainName = \MailSo\Base\Utils::GetDomainFromEmail($oUser->PublicId);
+					if ($oEntity instanceof \Aurora\Modules\Core\Classes\User) {
+						$sDomainName = \MailSo\Base\Utils::GetDomainFromEmail($oEntity->PublicId);
+						$oDomain = \Aurora\Modules\MailDomains\Module::getInstance()->getDomainsManager()->getDomainByName($sDomainName, $iTenantId);
+					} elseif ($oEntity instanceof \Aurora\Modules\MailDomains\Classes\Domain) {
+						$sDomainName = $oEntity->Name;
+						$oDomain = $oEntity;
+					}
+
 					if (!isset($this->oCpanel[$iTenantId][$sDomainName]))
 					{
-						$oDomain = \Aurora\Modules\MailDomains\Module::getInstance()->getDomainsManager()->getDomainByName($sDomainName, $iTenantId);
 						if ($oDomain instanceof Domain) 
 						{
 							$sHost = $oDomain->{self::GetName() . '::CpanelHost'};
@@ -1008,8 +1016,7 @@ class Module extends \Aurora\System\Module\AbstractModule
 				]
 			);
 			$aParseResult = self::parseResponse($sCpanelResponse); // throws exception in case if error has occured
-			$sForwardScriptPath = $this->getConfig('ForwardScriptPath', \dirname(__FILE__) . DIRECTORY_SEPARATOR . 'scripts' . DIRECTORY_SEPARATOR . 'process_mail.php');
-			if ($aParseResult
+			$sForwardScriptPath = $this->getScriptForwardPath($oCpanel);			if ($aParseResult
 				&& isset($aParseResult['Data'])
 				&& is_array($aParseResult['Data'])
 				&& count($aParseResult['Data']) > 0
@@ -1533,6 +1540,66 @@ class Module extends \Aurora\System\Module\AbstractModule
 		];
 	}
 
+	public function CheckProcessMailScript($CpanelUser, $TenantId = null, $DomainId = null)
+	{
+		$result = false;
+		Api::checkUserRoleIsAtLeast(UserRole::SuperAdmin);
+
+		if (empty($CpanelUser) || !Api::GetModule('PushNotificator')) {
+			$result = true;
+		} else {
+			$sForwardScriptPath = str_replace(
+				'{{cpanel_user}}',
+				$CpanelUser,
+				$this->getConfig('ForwardScriptPath', '')
+			);
+			if ($TenantId === null) {
+				$TenantId = 0;
+			}
+			$domain = null;
+			if ($DomainId !== null) {
+				$domain = \Aurora\Modules\MailDomains\Module::Decorator()->GetDomain($DomainId);
+				if ($domain) {
+					$TenantId = $domain->TenantId;
+				}
+			}
+			try {
+				$oCpanel = $this->getCpanel($TenantId, $domain);
+				$sCpanelResponse = $this->executeCpanelAction($oCpanel, 'Fileman', 'get_file_information', [
+						'path' => $sForwardScriptPath,
+					]
+				);
+				self::parseResponse($sCpanelResponse); // throws exception in case if error has occured
+				$result = true;
+			} catch (\Exception $oEx) {
+				$result = false;
+				Api::LogException($oEx);
+			}
+		}
+
+		// if (!$result) {
+		// 	$file = __DIR__ . '/scripts/process_mail.php';
+		// }
+		
+		return $result;
+	}
+
+	protected function getScriptForwardPath($cpanel)
+	{
+		$result = '';
+
+		if ($cpanel)
+		{
+			$result = str_replace(
+				'{{cpanel_user}}',
+				$cpanel->getUsername(),
+				$this->getConfig('ForwardScriptPath', '')
+			);
+		}
+
+		return $result;
+	}
+
 	/**
 	 * Obtains list of module settings for authenticated user.
 	 * @return array
@@ -1594,6 +1661,7 @@ class Module extends \Aurora\System\Module\AbstractModule
 	 */
 	public function UpdateSettings($CpanelHost, $CpanelPort, $CpanelUser, $CpanelPassword, $TenantId = null, $UseDomainSettings = false, $DomainId = null)
 	{
+		return true;
 		$oSettings = $this->GetModuleSettings();
 
 		if (!empty($DomainId))
@@ -2013,7 +2081,7 @@ class Module extends \Aurora\System\Module\AbstractModule
 					$oCpanel = $this->getCpanel($oUser->IdTenant, $oUser);
 					$sEmail = $oAccount->Email;
 					$sDomain = \MailSo\Base\Utils::GetDomainFromEmail($oUser->PublicId);
-					$sForwardScriptPath = $this->getConfig('ForwardScriptPath', \dirname(__FILE__) . DIRECTORY_SEPARATOR . 'scripts' . DIRECTORY_SEPARATOR . 'process_mail.php');
+					$sForwardScriptPath = $this->getScriptForwardPath($oCpanel);
 					if ($oCpanel && $sDomain && $sEmail && !empty($sForwardScriptPath))
 					{
 						$sCpanelResponse = $this->executeCpanelAction($oCpanel, 'Email', 'list_forwarders',
@@ -2071,7 +2139,7 @@ class Module extends \Aurora\System\Module\AbstractModule
 					$oCpanel = $this->getCpanel($oUser->IdTenant, $oUser);
 					$sEmail = $oAccount->Email;
 					$sDomain = \MailSo\Base\Utils::GetDomainFromEmail($oUser->PublicId);
-					$sForwardScriptPath = $this->getConfig('ForwardScriptPath', \dirname(__FILE__) . DIRECTORY_SEPARATOR . 'scripts' . DIRECTORY_SEPARATOR . 'process_mail.php');
+					$sForwardScriptPath = $this->getScriptForwardPath($oCpanel);
 
 					if ($oCpanel && $sDomain && $sEmail && !empty($sForwardScriptPath))
 					{
@@ -2114,7 +2182,8 @@ class Module extends \Aurora\System\Module\AbstractModule
 				$oUser = \Aurora\Modules\Core\Module::Decorator()->GetUserUnchecked($oAccount->IdUser);
 				if ($oUser instanceof \Aurora\Modules\Core\Classes\User)
 				{
-					$sForwardScriptPath = $this->getConfig('ForwardScriptPath', \dirname(__FILE__) . DIRECTORY_SEPARATOR . 'scripts' . DIRECTORY_SEPARATOR . 'process_mail.php');
+					$oCpanel = $this->getCpanel($oUser->IdTenant, $oUser);
+					$sForwardScriptPath = $this->getScriptForwardPath($oCpanel);
 					if (!empty($sForwardScriptPath))
 					{
 						try

@@ -38,6 +38,9 @@
 					<label for="useDomainSettings" data-bind="i18n: {'key': '%MODULENAME%/LABEL_CPANEL_ALLOW_DOMAIN_OVERRIDE'}"></label>
 				</span>
 			</div>
+			<div class="hint row" data-bind="visible: !checkScript()">
+				<span class="value" style="color: #f47474" data-bind="i18n: {'key': '%MODULENAME%/HINT_CHECK_SCRIPT'}"></span>
+			</div>	
 		</div>		
 
 		<div class="buttons">
