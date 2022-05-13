@@ -43,12 +43,14 @@ function SendPush($Data)
             CURLOPT_RETURNTRANSFER => true
         ]);
         $result = curl_exec($rCurl);
+		LogMessage('Response:');
         LogMessage($result);
         
         curl_close($rCurl);
     }
 }
 
+LogMessage('');
 LogMessage('Processing a message...');
 
 try {
@@ -130,7 +132,7 @@ try {
             $aResult[$sName] = \trim($sValue);
         }
 
-        LogMessage("Message headers:");
+        LogMessage('Message headers:');
         LogMessage(\json_encode($aResult));
 
         $isSpam = isset($aResult['X-Spam-Flag']) && $aResult['X-Spam-Flag'] === 'TRUE' ? true : false;
@@ -216,7 +218,8 @@ try {
                     "Email" => $sEmail,
                     "Data" => [$aPushMessageData]
                 ];
-
+				
+				LogMessage('Payload:');
                 LogMessage(\json_encode([$Data]));
                 SendPush([$Data]);
             }
