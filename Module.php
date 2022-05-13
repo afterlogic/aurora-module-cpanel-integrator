@@ -1661,7 +1661,6 @@ class Module extends \Aurora\System\Module\AbstractModule
 	 */
 	public function UpdateSettings($CpanelHost, $CpanelPort, $CpanelUser, $CpanelPassword, $TenantId = null, $UseDomainSettings = false, $DomainId = null)
 	{
-		return true;
 		$oSettings = $this->GetModuleSettings();
 
 		if (!empty($DomainId))
