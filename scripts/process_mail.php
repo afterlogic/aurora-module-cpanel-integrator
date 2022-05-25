@@ -6,6 +6,42 @@ $use_wrapper = false;
 $log_prefix = 'push-script-';
 $url = '';
 
+function DecodeHeader($header) 
+{
+    $rfc2047header = '/=\?([^ ?]+)\?([BQbq])\?([^ ?]+)\?=/';
+    $rfc2047header_spaces = '/(=\?[^ ?]+\?[BQbq]\?[^ ?]+\?=)\s+(=\?[^ ?]+\?[BQbq]\?[^ ?]+\?=)/';
+
+    $matches = null;
+
+    $header = preg_replace($rfc2047header_spaces, "$1$2", $header);
+
+    if (!preg_match_all($rfc2047header, $header, $matches, PREG_SET_ORDER)) {
+        return $header;
+    }
+    foreach ($matches as $header_match) {
+        list($match, $charset, $encoding, $data) = $header_match;
+        $encoding = strtoupper($encoding);
+        switch ($encoding) {
+            case 'B':
+                $data = base64_decode($data);
+                break;
+            case 'Q':
+                $data = quoted_printable_decode(str_replace("_", " ", $data));
+                break;
+            // default:
+            //     throw new Exception("preg_match_all is busted: didn't find B or Q in encoding $header");
+        }
+        switch (strtoupper($charset)) {
+            case "UTF-8":
+                break;
+            // default:
+            //     throw new Exception("Unknown charset in header - time to write some code.");
+        }
+        $header = str_replace($match, $data, $header);
+    }
+    return $header;
+}
+
 function LogMessage($Message)
 {
     global $debug, $use_wrapper, $log_prefix;
@@ -198,7 +234,7 @@ try {
                 $aPushMessageData = [
                     'From' => $sFrom,
                     'To' => $sEmail,
-                    'Subject' => $sSubject,
+                    'Subject' => DecodeHeader($sSubject),
                     'Folder' => 'INBOX'
                 ];
 
