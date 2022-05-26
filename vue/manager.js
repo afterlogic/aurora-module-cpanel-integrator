@@ -1,5 +1,9 @@
-import settings from '../../CpanelIntegrator/vue/settings'
 import moduleManager from 'src/modules-manager'
+
+import settings from './settings'
+
+import CpanelAdminSettingsPerTenant from './components/CpanelAdminSettingsPerTenant'
+import CpanelAliasesAdminSettingsPerUser from './components/CpanelAliasesAdminSettingsPerUser'
 
 export default {
   moduleName: 'CpanelIntegrator',
@@ -14,48 +18,44 @@ export default {
     return [
       {
         tabName: 'cpanel',
-        title: 'CPANELINTEGRATOR.ADMIN_SETTINGS_TAB_LABEL',
-        component () {
-          return import('./components/CpanelAdminSettings')
-        },
+        tabTitle: 'CPANELINTEGRATOR.ADMIN_SETTINGS_TAB_LABEL',
+        tabRouteChildren: [
+          { path: 'cpanel', component: () => import('./components/CpanelAdminSettings') },
+        ],
       },
     ]
   },
+
   getAdminTenantTabs () {
     return [
       {
         tabName: 'cpanel',
-        paths: [
-          'id/:id/cpanel',
-          'search/:search/id/:id/cpanel',
-          'page/:page/id/:id/cpanel',
-          'search/:search/page/:page/id/:id/cpanel',
+        tabTitle: 'CPANELINTEGRATOR.ADMIN_SETTINGS_TAB_LABEL',
+        tabRouteChildren: [
+          { path: 'id/:id/cpanel', component: CpanelAdminSettingsPerTenant },
+          { path: 'search/:search/id/:id/cpanel', component: CpanelAdminSettingsPerTenant },
+          { path: 'page/:page/id/:id/cpanel', component: CpanelAdminSettingsPerTenant },
+          { path: 'search/:search/page/:page/id/:id/cpanel', component: CpanelAdminSettingsPerTenant },
         ],
-        title: 'CPANELINTEGRATOR.ADMIN_SETTINGS_TAB_LABEL',
-        component () {
-          return import('./components/CpanelAdminSettingsPerTenant')
-        }
       },
     ]
   },
+
   getAdminUserTabs() {
     if (moduleManager.isModuleAvailable('MailDomains')) {
       return [
         {
           tabName: 'cpanel-aliases',
-          title: 'CPANELINTEGRATOR.LABEL_SETTINGS_TAB_ALIASES',
-          paths: [
-            'id/:id/cpanel-aliases',
-            'search/:search/id/:id/cpanel-aliases',
-            'page/:page/id/:id/cpanel-aliases',
-            'search/:search/page/:page/id/:id/cpanel-aliases',
+          tabTitle: 'CPANELINTEGRATOR.LABEL_SETTINGS_TAB_ALIASES',
+          tabRouteChildren: [
+            { path: 'id/:id/cpanel-aliases', component: CpanelAliasesAdminSettingsPerUser },
+            { path: 'search/:search/id/:id/cpanel-aliases', component: CpanelAliasesAdminSettingsPerUser },
+            { path: 'page/:page/id/:id/cpanel-aliases', component: CpanelAliasesAdminSettingsPerUser },
+            { path: 'search/:search/page/:page/id/:id/cpanel-aliases', component: CpanelAliasesAdminSettingsPerUser },
           ],
-          component() {
-            return import('./components/CpanelAliasesAdminSettingsPerUser')
-          },
         }
       ]
     }
     return []
-  }
+  },
 }

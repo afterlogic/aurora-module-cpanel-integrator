@@ -150,7 +150,6 @@ export default {
           AliasDomain: this.selectedDomain?.name,
           TenantId: this.currentTenantId,
         }
-        console.log('parameters', parameters)
         webApi.sendRequest({
           moduleName: 'CpanelIntegrator',
           methodName: 'AddNewAlias',
