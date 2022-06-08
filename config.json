@@ -1,84 +1,84 @@
 {
-  "Disabled": [
-    false,
-    "bool"
-  ],
-  "Disabled_Description": [
-    "",
-    "string"
-  ],
-  "CpanelHost": [
-    "127.0.0.1",
-    "string"
-  ],
-  "CpanelHost_Description": [
-    "",
-    "string"
-  ],
-  "CpanelPort": [
-    "2083",
-    "string"
-  ],
-  "CpanelPort_Description": [
-    "",
-    "string"
-  ],
-  "CpanelUser": [
-    "",
-    "string"
-  ],
-  "CpanelUser_Description": [
-    "",
-    "string"
-  ],
-  "CpanelPassword": [
-    "",
-    "string"
-  ],
-  "CpanelPassword_Description": [
-    "",
-    "string"
-  ],
-  "UserDefaultQuotaMB": [
-    1,
-    "int"
-  ],
-  "UserDefaultQuotaMB_Description": [
-    "",
-    "string"
-  ],
-  "SupportedServers": [
-    [
-      "*"
-    ],
-    "array"
-  ],
-  "SupportedServers_Description": [
-    "",
-    "string"
-  ],
-  "AllowCreateDeleteAccountOnCpanel": [
-    false,
-    "bool"
-  ],
-  "AllowCreateDeleteAccountOnCpanel_Description": [
-    "",
-    "string"
-  ],
-  "AllowAliases": [
-    false,
-    "bool"
-  ],
-  "AllowAliases_Description": [
-    "",
-    "string"
-  ],
-  "ForwardScriptPath": [
-    "",
-    "string"
-  ],
-  "ForwardScriptPath_Description": [
-    "",
-    "string"
-  ]
+	"Disabled": [
+		false,
+		"bool"
+	],
+	"Disabled_Description": [
+		"",
+		"string"
+	],
+	"CpanelHost": [
+		"127.0.0.1",
+		"string"
+	],
+	"CpanelHost_Description": [
+		"",
+		"string"
+	],
+	"CpanelPort": [
+		"2083",
+		"string"
+	],
+	"CpanelPort_Description": [
+		"",
+		"string"
+	],
+	"CpanelUser": [
+		"",
+		"string"
+	],
+	"CpanelUser_Description": [
+		"",
+		"string"
+	],
+	"CpanelPassword": [
+		"",
+		"string"
+	],
+	"CpanelPassword_Description": [
+		"",
+		"string"
+	],
+	"UserDefaultQuotaMB": [
+		1,
+		"int"
+	],
+	"UserDefaultQuotaMB_Description": [
+		"",
+		"string"
+	],
+	"SupportedServers": [
+		[
+			"*"
+		],
+		"array"
+	],
+	"SupportedServers_Description": [
+		"",
+		"string"
+	],
+	"AllowCreateDeleteAccountOnCpanel": [
+		false,
+		"bool"
+	],
+	"AllowCreateDeleteAccountOnCpanel_Description": [
+		"",
+		"string"
+	],
+	"AllowAliases": [
+		false,
+		"bool"
+	],
+	"AllowAliases_Description": [
+		"",
+		"string"
+	],
+	"ForwardScriptPath": [
+		"",
+		"string"
+	],
+	"ForwardScriptPath_Description": [
+		"",
+		"string"
+	]
 }
