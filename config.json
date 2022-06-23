@@ -4,7 +4,7 @@
 		"bool"
 	],
 	"Disabled_Description": [
-		"",
+		"Setting to true disables the module",
 		"string"
 	],
 	"CpanelHost": [
@@ -12,7 +12,7 @@
 		"string"
 	],
 	"CpanelHost_Description": [
-		"",
+		"Hostname of cPanel server the integration is configured for",
 		"string"
 	],
 	"CpanelPort": [
@@ -20,7 +20,7 @@
 		"string"
 	],
 	"CpanelPort_Description": [
-		"",
+		"Port number used to connect to cPanel server",
 		"string"
 	],
 	"CpanelUser": [
@@ -28,7 +28,7 @@
 		"string"
 	],
 	"CpanelUser_Description": [
-		"",
+		"User account used for integration with cPanel server",
 		"string"
 	],
 	"CpanelPassword": [
@@ -36,7 +36,7 @@
 		"string"
 	],
 	"CpanelPassword_Description": [
-		"",
+		"Password of the account used for integration with cPanel server",
 		"string"
 	],
 	"UserDefaultQuotaMB": [
@@ -44,7 +44,7 @@
 		"int"
 	],
 	"UserDefaultQuotaMB_Description": [
-		"",
+		"Default quota of new email accounts created on cPanel",
 		"string"
 	],
 	"SupportedServers": [
@@ -54,7 +54,7 @@
 		"array"
 	],
 	"SupportedServers_Description": [
-		"",
+		"List of mail servers the integration applies to, * for all the mail servers",
 		"string"
 	],
 	"AllowCreateDeleteAccountOnCpanel": [
@@ -62,7 +62,7 @@
 		"bool"
 	],
 	"AllowCreateDeleteAccountOnCpanel_Description": [
-		"",
+		"Enables managing email accounts from within adminpanel interface of our product",
 		"string"
 	],
 	"AllowAliases": [
@@ -70,7 +70,7 @@
 		"bool"
 	],
 	"AllowAliases_Description": [
-		"",
+		"Enables creating mail aliases from our adminpanel",
 		"string"
 	],
 	"ForwardScriptPath": [
