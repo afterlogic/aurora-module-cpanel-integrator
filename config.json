@@ -78,7 +78,7 @@
 		"string"
 	],
 	"ForwardScriptPath_Description": [
-		"",
+		"Filesystem location of custom mail forwarder, defaults to scripts/process_mail.php file",
 		"string"
 	]
 }
