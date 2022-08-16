@@ -1583,6 +1583,7 @@ class Module extends \Aurora\System\Module\AbstractModule
 		$oAccount = \Aurora\System\Api::GetModuleDecorator('Mail')->GetAccountByEmail($oUser->PublicId, $oUser->Id);
 		if ($oAccount instanceof \Aurora\Modules\Mail\Models\MailAccount && $this->isAccountServerSupported($oAccount))
 		{
+			$aForwardersFromEmail = [];
 			$sEmail = $oAccount->Email;
 			$sDomain = \MailSo\Base\Utils::GetDomainFromEmail($sEmail);
 
@@ -1600,7 +1601,7 @@ class Module extends \Aurora\System\Module\AbstractModule
 				{
 					$aForwarders = array_merge($aForwarders, $this->getDomainForwarders($sEmail, $sServerDomain, $oUser->IdTenant));
 				}
-				$aForwardersFromEmail = [];
+
 				//filter forvarders
 				$aFilteredForwarders = $this->getAliasesFromForwarders($aForwarders, $oUser->IdTenant);
 				foreach ($aFilteredForwarders as $oForwarder)
