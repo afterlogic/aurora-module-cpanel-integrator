@@ -1621,11 +1621,11 @@ class Module extends \Aurora\System\Module\AbstractModule
 				{
 					if (!in_array($sForwarderFromEmail, $aAliasesEmail))
 					{
-						//Check if an alias exists in EAV
+						//Check if an alias exists
 						$aAliasesCheck = $this->getManager('Aliases')->getAliases(0, 0, Models\Alias::where('Email', $sForwarderFromEmail));
 						if (empty($aAliasesCheck))
 						{
-							//create eav-alias if doesn't exists
+							//create alias if doesn't exists
 							$oAlias = new \Aurora\Modules\CpanelIntegrator\Models\Alias();
 							$oAlias->IdUser = $oUser->Id;
 							$oAlias->IdAccount = $oAccount->Id;
@@ -1716,7 +1716,7 @@ class Module extends \Aurora\System\Module\AbstractModule
 		{
 			throw new \Aurora\System\Exceptions\ApiException(Enums\ErrorCodes::AliasAlreadyExists);
 		}
-		//Check if an alias exists in EAV
+		//Check if an alias exists
 		$aAliases = $this->getManager('Aliases')->getAliases(0, 0, Models\Alias::where('Email', $AliasName . '@' . $AliasDomain));
 		if ($aAliases->count() > 0)
 		{
@@ -1761,7 +1761,7 @@ class Module extends \Aurora\System\Module\AbstractModule
 			$bCreateForwardewResult = $this->createForwarder($AliasDomain, $AliasName . '@' . $AliasDomain, $oAccount->Email, $oUser->IdTenant);
 			if ($bCreateForwardewResult)
 			{
-				//create eav Alias
+				//create Alias
 				$oAlias = new \Aurora\Modules\CpanelIntegrator\Models\Alias();
 				$oAlias->IdUser = $oUser->Id;
 				$oAlias->IdAccount = $oAccount->Id;
