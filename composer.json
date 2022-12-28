@@ -7,6 +7,9 @@
 		"afterlogic/aurora-module-mail": "~0.10.0",
 		"gufy/cpanel-php": "~1.0"
 	},
+	"autoload": {
+		"classmap": ["/"]
+	},
 	"extra": {
 		"installer-name": "CpanelIntegrator"
 	}
