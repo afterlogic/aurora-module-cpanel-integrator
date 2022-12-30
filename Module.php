@@ -70,6 +70,10 @@ class Module extends \Aurora\System\Module\AbstractModule
 		$this->subscribeEvent('Mail::IsEmailAllowedForCreation::after', array($this, 'onAfterIsEmailAllowedForCreation'));
 	}
 
+	/**
+	 * @param string $sManager
+	 * @return object 
+	 */
 	public function getManager($sManager)
 	{
 		if ($this->aManagers[$sManager] === null)
@@ -537,6 +541,8 @@ class Module extends \Aurora\System\Module\AbstractModule
 
 			return true; // breaking subscriptions to prevent update in parent module
 		}
+
+		return false;
 	}
 
 	/**
@@ -552,7 +558,7 @@ class Module extends \Aurora\System\Module\AbstractModule
 		if (isset($aArgs['AccountID']))
 		{
 			$oAuthenticatedUser = \Aurora\System\Api::getAuthenticatedUser();
-			$oAccount = \Aurora\System\Api::GetModule('Mail')->GetAccount($aArgs['AccountID']);
+			$oAccount = \Aurora\Modules\Mail\Module::getInstance()->GetAccount($aArgs['AccountID']);
 			if ($oAccount instanceof \Aurora\Modules\Mail\Models\MailAccount
 					&& $this->isAccountServerSupported($oAccount))
 			{
@@ -584,6 +590,8 @@ class Module extends \Aurora\System\Module\AbstractModule
 				return true; // breaking subscriptions to prevent update in parent module
 			}
 		}
+
+		return false;
 	}
 
 	/**
@@ -621,6 +629,8 @@ class Module extends \Aurora\System\Module\AbstractModule
 				return true; // breaking subscriptions to prevent update in parent module
 			}
 		}
+
+		return false;
 	}
 
 	/**
@@ -657,6 +667,8 @@ class Module extends \Aurora\System\Module\AbstractModule
 
 			return true; // breaking subscriptions to prevent update in parent module
 		}
+
+		return false;
 	}
 
 	/**
@@ -672,7 +684,7 @@ class Module extends \Aurora\System\Module\AbstractModule
 			throw new \Aurora\System\Exceptions\ApiException(\Aurora\System\Notifications::InvalidInputParameter);
 		}
 
-		$oAccount = \Aurora\System\Api::GetModule('Mail')->GetAccount($aArgs['AccountID']);
+		$oAccount = \Aurora\Modules\Mail\Module::getInstance()->GetAccount($aArgs['AccountID']);
 		if ($oAccount instanceof \Aurora\Modules\Mail\Models\MailAccount
 				&& $this->isAccountServerSupported($oAccount))
 		{
@@ -692,6 +704,8 @@ class Module extends \Aurora\System\Module\AbstractModule
 
 			return true; // breaking subscriptions to prevent update in parent module
 		}
+
+		return false;
 	}
 
 	/**
@@ -708,7 +722,7 @@ class Module extends \Aurora\System\Module\AbstractModule
 			throw new \Aurora\System\Exceptions\ApiException(\Aurora\System\Notifications::InvalidInputParameter);
 		}
 
-		$oAccount = \Aurora\System\Api::GetModule('Mail')->GetAccount($aArgs['AccountID']);
+		$oAccount = \Aurora\Modules\Mail\Module::getInstance()->GetAccount($aArgs['AccountID']);
 		if ($oAccount instanceof \Aurora\Modules\Mail\Models\MailAccount
 				&& $this->isAccountServerSupported($oAccount))
 		{
@@ -760,6 +774,8 @@ class Module extends \Aurora\System\Module\AbstractModule
 
 			return true; // breaking subscriptions to prevent update in parent module
 		}
+
+		return false;
 	}
 
 	public function onAfterIsEmailAllowedForCreation($aArgs, &$mResult)
@@ -1524,6 +1540,7 @@ class Module extends \Aurora\System\Module\AbstractModule
 	 */
 	public function UpdateSettings($CpanelHost, $CpanelPort, $CpanelUser, $CpanelPassword, $TenantId = null)
 	{
+		$result = false;
 		$oSettings = $this->GetModuleSettings();
 		if (!empty($TenantId))
 		{
@@ -1539,7 +1556,7 @@ class Module extends \Aurora\System\Module\AbstractModule
 				{
 					$oSettings->SetTenantValue($oTenant->Name, 'CpanelPassword', $CpanelPassword);
 				}
-				return $oSettings->SaveTenantSettings($oTenant->Name);
+				$result = $oSettings->SaveTenantSettings($oTenant->Name);
 			}
 		}
 		else
@@ -1553,8 +1570,10 @@ class Module extends \Aurora\System\Module\AbstractModule
 			{
 				$oSettings->SetValue('CpanelPassword', $CpanelPassword);
 			}
-			return $oSettings->Save();
+			$result = $oSettings->Save();
 		}
+
+		return $result;
 	}
 
 	/**
@@ -1922,7 +1941,7 @@ class Module extends \Aurora\System\Module\AbstractModule
 		$aResult = [];
 
 		$oAuthenticatedUser = \Aurora\System\Api::getAuthenticatedUser();
-		$oAccount = \Aurora\System\Api::GetModule('Mail')->GetAccount($AccountID);
+		$oAccount = \Aurora\Modules\Mail\Module::getInstance()->GetAccount($AccountID);
 		if ($oAccount instanceof \Aurora\Modules\Mail\Models\MailAccount && $this->isAccountServerSupported($oAccount))
 		{
 			if ($oAuthenticatedUser instanceof \Aurora\Modules\Core\Models\User
@@ -1980,7 +1999,7 @@ class Module extends \Aurora\System\Module\AbstractModule
 	public function CreateScriptForward($AccountID)
 	{
 		$oAuthenticatedUser = \Aurora\System\Api::getAuthenticatedUser();
-		$oAccount = \Aurora\System\Api::GetModule('Mail')->GetAccount($AccountID);
+		$oAccount = \Aurora\Modules\Mail\Module::getInstance()->GetAccount($AccountID);
 		if ($oAccount instanceof \Aurora\Modules\Mail\Models\MailAccount && $this->isAccountServerSupported($oAccount))
 		{
 			if ($oAuthenticatedUser instanceof \Aurora\Modules\Core\Models\User
@@ -2026,7 +2045,7 @@ class Module extends \Aurora\System\Module\AbstractModule
 	{
 		$bResult = false;
 		$oAuthenticatedUser = \Aurora\System\Api::getAuthenticatedUser();
-		$oAccount = \Aurora\System\Api::GetModule('Mail')->GetAccount($AccountID);
+		$oAccount = \Aurora\Modules\Mail\Module::getInstance()->GetAccount($AccountID);
 		if ($oAccount instanceof \Aurora\Modules\Mail\Models\MailAccount && $this->isAccountServerSupported($oAccount))
 		{
 			if ($oAuthenticatedUser instanceof \Aurora\Modules\Core\Models\User

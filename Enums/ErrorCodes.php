@@ -14,13 +14,15 @@ namespace Aurora\Modules\CpanelIntegrator\Enums;
  */
 class ErrorCodes
 {
-	const DataIntegrity				= 1001;
+	const DataIntegrity					= 1001;
 	const Validation_InvalidParameters	= 1002;
-	const AliasCreateFailed			= 1003;
-	const AliasUpdateFailed			= 1004;
-	const DomainOutsideTenant		= 1005;
+	const AliasCreateFailed				= 1003;
+	const AliasUpdateFailed				= 1004;
+	const DomainOutsideTenant			= 1005;
 	const AliaMatchesExistingEmail		= 1006;
 	const AliasAlreadyExists			= 1007;
+	const SaleCreateFailed				= 1008;
+	const SaleUpdateFailed				= 1009;
 
 	/**
 	 * @var array
@@ -31,7 +33,7 @@ class ErrorCodes
 		'AliasCreateFailed'				=> self::SaleCreateFailed,
 		'AliasUpdateFailed'				=> self::SaleUpdateFailed,
 		'DomainOutsideTenant'			=> self::DomainOutsideTenant,
-		'AliaMatchesExistingEmail'			=> self::AliaMatchesExistingEmail,
-		'AliasAlreadyExists'				=> self::AliasAlreadyExists
+		'AliaMatchesExistingEmail'		=> self::AliaMatchesExistingEmail,
+		'AliasAlreadyExists'			=> self::AliasAlreadyExists
 	];
 }
