@@ -12,7 +12,7 @@ $fd = fopen( "php://stdin", "r" );
 
 $headers = "";
 
-if ($fd)
+if ($fd && \Aurora\System\Api::GetModuleManager()->IsAllowedModule('PushNotificator'))
 {
     $sRawHeaders = '';
     while (trim($line = fgets($fd)) !== '')
@@ -183,7 +183,7 @@ if ($fd)
 
             $Secret = \Aurora\System\Api::GetModule('PushNotificator')->getConfig('Secret', '');
             \Aurora\System\Api::Log(\json_encode([$Data]), \Aurora\System\Enums\LogLevel::Full, 'push-');
-            \Aurora\Modules\PushNotificator\Module::Decorator()->SendPush($Secret, [$Data]);
+            \Aurora\System\Api::GetModuleDecorator('PushNotificator')->SendPush($Secret, [$Data]);
         }
     }
 }
