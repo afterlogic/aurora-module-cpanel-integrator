@@ -12,7 +12,7 @@ use Aurora\Modules\CpanelIntegrator\Models\Alias;
 /**
  * @license https://www.gnu.org/licenses/agpl-3.0.html AGPL-3.0
  * @license https://afterlogic.com/products/common-licensing Afterlogic Software License
- * @copyright Copyright (c) 2020, Afterlogic Corp.
+ * @copyright Copyright (c) 2023, Afterlogic Corp.
  */
 class Aliases extends \Aurora\System\Managers\AbstractManager
 {

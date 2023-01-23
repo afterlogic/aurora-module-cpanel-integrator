@@ -10,7 +10,7 @@ namespace Aurora\Modules\CpanelIntegrator\Enums;
 /**
  * @license https://www.gnu.org/licenses/agpl-3.0.html AGPL-3.0
  * @license https://afterlogic.com/products/common-licensing Afterlogic Software License
- * @copyright Copyright (c) 2020, Afterlogic Corp.
+ * @copyright Copyright (c) 2023, Afterlogic Corp.
  */
 class ErrorCodes
 {
