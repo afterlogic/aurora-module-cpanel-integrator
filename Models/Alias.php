@@ -14,28 +14,28 @@ use Aurora\Modules\Mail\Models\MailAccount;
  * @license https://www.gnu.org/licenses/agpl-3.0.html AGPL-3.0
  * @license https://afterlogic.com/products/common-licensing Afterlogic Software License
  * @copyright Copyright (c) 2023, Afterlogic Corp.
- * 
+ *
  * @property int $IdUser
  */
 class Alias extends Model
 {
-	protected $table = 'cpanel_aliases';
+    protected $table = 'cpanel_aliases';
 
-	protected $foreignModel = MailAccount::class;
-	protected $foreignModelIdColumn = 'IdAccount'; // Column that refers to an external table
-	
-	protected $fillable = [
-		'Id',
-		'IdUser',
-		'IdAccount',
-		'Email',
-		'ForwardTo',
-		'FriendlyName',
-		'UseSignature',
-		'Signature'
-	];
+    protected $foreignModel = MailAccount::class;
+    protected $foreignModelIdColumn = 'IdAccount'; // Column that refers to an external table
 
-	protected $appends = [
+    protected $fillable = [
+        'Id',
+        'IdUser',
+        'IdAccount',
+        'Email',
+        'ForwardTo',
+        'FriendlyName',
+        'UseSignature',
+        'Signature'
+    ];
+
+    protected $appends = [
         'EntityId'
     ];
 
@@ -44,9 +44,9 @@ class Alias extends Model
         return $this->Id;
     }
 
-	public function __construct(array $attributes = [])
+    public function __construct(array $attributes = [])
     {
-		parent::__construct($attributes);
-		$this->Signature = '';
-	}
+        parent::__construct($attributes);
+        $this->Signature = '';
+    }
 }

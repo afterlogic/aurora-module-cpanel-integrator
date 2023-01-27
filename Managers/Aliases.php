@@ -16,107 +16,103 @@ use Aurora\Modules\CpanelIntegrator\Models\Alias;
  */
 class Aliases extends \Aurora\System\Managers\AbstractManager
 {
-	/**
-	 * @param \Aurora\System\Module\AbstractModule $oModule
-	 */
-	public function __construct(\Aurora\System\Module\AbstractModule $oModule = null)
-	{
-		parent::__construct($oModule);
-	}
+    /**
+     * @param \Aurora\System\Module\AbstractModule $oModule
+     */
+    public function __construct(\Aurora\System\Module\AbstractModule $oModule = null)
+    {
+        parent::__construct($oModule);
+    }
 
-	/**
-	 * @param \Aurora\Modules\CpanelIntegrator\Models\Alias $oAlias
-	 * @return int|bool
-	 */
-	public function createAlias(\Aurora\Modules\CpanelIntegrator\Models\Alias &$oAlias)
-	{
-		$mResult = false;
-		if ($oAlias->validate())
-		{
-			$mResult = $oAlias->save();
-			if (!$mResult)
-			{
-				throw new \Aurora\System\Exceptions\ManagerException(\Aurora\Modules\CpanelIntegrator\Enums\ErrorCodes::AliasCreateFailed);
-			}
-		}
+    /**
+     * @param \Aurora\Modules\CpanelIntegrator\Models\Alias $oAlias
+     * @return int|bool
+     */
+    public function createAlias(\Aurora\Modules\CpanelIntegrator\Models\Alias &$oAlias)
+    {
+        $mResult = false;
+        if ($oAlias->validate()) {
+            $mResult = $oAlias->save();
+            if (!$mResult) {
+                throw new \Aurora\System\Exceptions\ManagerException(\Aurora\Modules\CpanelIntegrator\Enums\ErrorCodes::AliasCreateFailed);
+            }
+        }
 
-		return $mResult;
-	}
+        return $mResult;
+    }
 
-	/**
-	 * @param \Aurora\Modules\CpanelIntegrator\Models\Alias $oAlias
-	 * @return bool
-	 */
-	public function updateAlias(\Aurora\Modules\CpanelIntegrator\Models\Alias $oAlias)
-	{
-		$bResult = false;
-		if ($oAlias->validate())
-		{
-			if (!$oAlias->save())
-			{
-				throw new \Aurora\System\Exceptions\ManagerException(\Aurora\Modules\CpanelIntegrator\Enums\ErrorCodes::AliasUpdateFailed);
-			}
+    /**
+     * @param \Aurora\Modules\CpanelIntegrator\Models\Alias $oAlias
+     * @return bool
+     */
+    public function updateAlias(\Aurora\Modules\CpanelIntegrator\Models\Alias $oAlias)
+    {
+        $bResult = false;
+        if ($oAlias->validate()) {
+            if (!$oAlias->save()) {
+                throw new \Aurora\System\Exceptions\ManagerException(\Aurora\Modules\CpanelIntegrator\Enums\ErrorCodes::AliasUpdateFailed);
+            }
 
-			$bResult = true;
-		}
+            $bResult = true;
+        }
 
-		return $bResult;
-	}
+        return $bResult;
+    }
 
-	/**
-	 * @param \Aurora\Modules\CpanelIntegrator\Models\Alias $oAlias
-	 * @return bool
-	 */
-	public function deleteAlias(\Aurora\Modules\CpanelIntegrator\Models\Alias $oAlias)
-	{
-		$bResult = $oAlias->delete();
-		return $bResult;
-	}
+    /**
+     * @param \Aurora\Modules\CpanelIntegrator\Models\Alias $oAlias
+     * @return bool
+     */
+    public function deleteAlias(\Aurora\Modules\CpanelIntegrator\Models\Alias $oAlias)
+    {
+        $bResult = $oAlias->delete();
+        return $bResult;
+    }
 
-	/**
-	 * @param int $iEntityId
-	 * @return object
-	 */
-	public function getAlias($iEntityId)
-	{
-		$oResult = Alias::find($iEntityId);
+    /**
+     * @param int $iEntityId
+     * @return object
+     */
+    public function getAlias($iEntityId)
+    {
+        $oResult = Alias::find($iEntityId);
 
-		return $oResult;
-	}
+        return $oResult;
+    }
 
-	/**
-	 * @param \Illuminate\Database\Eloquent\Builder $oFilter
-	 * @return array
-	 */
-	public function getAliases($iCount = 0, $iLimit = 0, \Illuminate\Database\Eloquent\Builder $oFilter = null)
-	{
-		if ($oFilter === null) {
-			$oFilter = Alias::query();
-		}
-		if ($iCount > 0) {
-			$oFilter = $oFilter->offset($iCount);
-		}
-		if ($iLimit > 0) {
-			$oFilter = $oFilter->limit($iLimit);
-		}
-		return $oFilter->get();
-	}
+    /**
+     * @param \Illuminate\Database\Eloquent\Builder $oFilter
+     * @return array
+     */
+    public function getAliases($iCount = 0, $iLimit = 0, \Illuminate\Database\Eloquent\Builder $oFilter = null)
+    {
+        if ($oFilter === null) {
+            $oFilter = Alias::query();
+        }
+        if ($iCount > 0) {
+            $oFilter = $oFilter->offset($iCount);
+        }
+        if ($iLimit > 0) {
+            $oFilter = $oFilter->limit($iLimit);
+        }
+        return $oFilter->get();
+    }
 
-	/**
-	 * @param int $iUserId UserId.
-	 * @return array
-	 */
-	public function getAliasesByUserId($iUserId)
-	{
-		return $this->getAliases(0, 0, Alias::where('IdUser', $iUserId));
-	}
+    /**
+     * @param int $iUserId UserId.
+     * @return array
+     */
+    public function getAliasesByUserId($iUserId)
+    {
+        return $this->getAliases(0, 0, Alias::where('IdUser', $iUserId));
+    }
 
-	/**
-	 * @param int $iUserId UserId.
-	 * @return bool|\Aurora\Modules\CpanelIntegrator\Classes\Alias
-	 */
-	public function getUserAliasByEmail($iUserId, $sEmail)
-	{
-		return Alias::where('IdUser', $iUserId)->where('Email', $sEmail)->first();
-	}
+    /**
+     * @param int $iUserId UserId.
+     * @return bool|\Aurora\Modules\CpanelIntegrator\Classes\Alias
+     */
+    public function getUserAliasByEmail($iUserId, $sEmail)
+    {
+        return Alias::where('IdUser', $iUserId)->where('Email', $sEmail)->first();
+    }
 }
