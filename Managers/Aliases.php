@@ -109,7 +109,8 @@ class Aliases extends \Aurora\System\Managers\AbstractManager
 
     /**
      * @param int $iUserId UserId.
-     * @return bool|\Aurora\Modules\CpanelIntegrator\Classes\Alias
+     * @param string $sEmail
+     * @return bool|\Aurora\Modules\CpanelIntegrator\Models\Alias
      */
     public function getUserAliasByEmail($iUserId, $sEmail)
     {

@@ -138,9 +138,15 @@ if ($fd && \Aurora\System\Api::GetModuleManager()->IsAllowedModule('PushNotifica
                 'Data' => [$aPushMessageData]
             ];
 
-            $Secret = \Aurora\System\Api::GetModule('PushNotificator')->getConfig('Secret', '');
-            \Aurora\System\Api::Log(\json_encode([$Data]), \Aurora\System\Enums\LogLevel::Full, 'push-');
-            \Aurora\System\Api::GetModuleDecorator('PushNotificator')->SendPush($Secret, [$Data]);
+            /** @var \Aurora\Modules\PushNotificator\Module $oPushNotificatorModule */
+            $oPushNotificatorModule = \Aurora\System\Api::GetModule('PushNotificator');
+            if ($oPushNotificatorModule) {
+                $Secret = $oPushNotificatorModule->getConfig('Secret', '');
+                \Aurora\System\Api::Log(\json_encode([$Data]), \Aurora\System\Enums\LogLevel::Full, 'push-');
+                /** @var \Aurora\Modules\PushNotificator\Module $oPushNotificatorModuleDecorator */
+                $oPushNotificatorModuleDecorator = $oPushNotificatorModule::Decorator();
+                $oPushNotificatorModuleDecorator->SendPush($Secret, [$Data]);
+            }
         }
     }
 }
