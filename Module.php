@@ -1436,7 +1436,7 @@ class Module extends \Aurora\System\Module\AbstractModule
      * @param string $CpanelUser
      * @param int $CpanelPassword
      * @param int|null $TenantId
-     * 
+     *
      * @return boolean
      */
     public function UpdateSettings($CpanelHost, $CpanelPort, $CpanelUser, $CpanelPassword, $TenantId = null)
