@@ -42,7 +42,7 @@ class Module extends \Aurora\System\Module\AbstractModule
      *
      * @return Settings
      */
-    protected function GetModuleSettings()
+    public function getModuleSettings()
     {
         return $this->oModuleSettings;
     }
@@ -115,7 +115,7 @@ class Module extends \Aurora\System\Module\AbstractModule
 
             $oAuthenticatedUser = \Aurora\System\Api::getAuthenticatedUser();
             if ($iTenantId !== 0 && $oAuthenticatedUser && $oAuthenticatedUser->Role === \Aurora\System\Enums\UserRole::SuperAdmin) {
-                $oSettings = $this->GetModuleSettings();
+                $oSettings = $this->getModuleSettings();
                 $oTenant = \Aurora\System\Api::getTenantById($iTenantId);
                 $sHost = $oSettings->GetTenantValue($oTenant->Name, 'CpanelHost', '');
                 $sPort = $oSettings->GetTenantValue($oTenant->Name, 'CpanelPort', '');
@@ -318,7 +318,7 @@ class Module extends \Aurora\System\Module\AbstractModule
 
                 $this->deleteAutoresponder($oAccount->Email, $oUser->IdTenant);
 
-                $oSettings = $this->GetModuleSettings();
+                $oSettings = $this->getModuleSettings();
                 //Checking if an account exists on CPanel
                 $oCpanel = $this->getCpanel($oUser->IdTenant);
                 if ($oCpanel) {
@@ -1397,7 +1397,7 @@ class Module extends \Aurora\System\Module\AbstractModule
      */
     public function GetSettings($TenantId = null)
     {
-        $oSettings = $this->GetModuleSettings();
+        $oSettings = $this->getModuleSettings();
 
         if (empty($TenantId)) {
             $oAuthenticatedUser = \Aurora\System\Api::getAuthenticatedUser();
@@ -1451,7 +1451,7 @@ class Module extends \Aurora\System\Module\AbstractModule
     public function UpdateSettings($CpanelHost, $CpanelPort, $CpanelUser, $CpanelPassword, $TenantId = null)
     {
         $result = false;
-        $oSettings = $this->GetModuleSettings();
+        $oSettings = $this->getModuleSettings();
         if (!empty($TenantId)) {
             \Aurora\System\Api::checkUserRoleIsAtLeast(\Aurora\System\Enums\UserRole::TenantAdmin);
             $oTenant = \Aurora\System\Api::getTenantById($TenantId);
