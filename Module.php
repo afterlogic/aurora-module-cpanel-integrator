@@ -18,6 +18,8 @@ use Aurora\System\Exceptions\ApiException;
  * @license https://afterlogic.com/products/common-licensing Afterlogic Software License
  * @copyright Copyright (c) 2023, Afterlogic Corp.
  *
+ * @property Settings $oModuleSettings
+ *
  * @package Modules
  */
 class Module extends \Aurora\System\Module\AbstractModule
@@ -55,7 +57,7 @@ class Module extends \Aurora\System\Module\AbstractModule
             Enums\ErrorCodes::AliasAlreadyExists		=> $this->i18N('ERROR_ALIAS_ALREADY_EXISTS'),
         ];
         $oAuthenticatedUser = \Aurora\System\Api::getAuthenticatedUser();
-        if ($this->getConfig('AllowCreateDeleteAccountOnCpanel', false) && $oAuthenticatedUser &&
+        if ($this->oModuleSettings->AllowCreateDeleteAccountOnCpanel && $oAuthenticatedUser &&
                 ($oAuthenticatedUser->Role === \Aurora\System\Enums\UserRole::SuperAdmin || $oAuthenticatedUser->Role === \Aurora\System\Enums\UserRole::TenantAdmin)) {
             // Subscription shouldn't work for Anonymous because Signup subscription will work
             // Subscription shouldn't work for Normal user because CPanel account should be created only for first user account
@@ -108,10 +110,10 @@ class Module extends \Aurora\System\Module\AbstractModule
     protected function getCpanel($iTenantId = 0)
     {
         if (!isset($this->oCpanel[$iTenantId])) {
-            $sHost = $this->getConfig('CpanelHost', '');
-            $sPort = $this->getConfig('CpanelPort', '');
-            $sUser = $this->getConfig('CpanelUser', '');
-            $sPassword = $this->getConfig('CpanelPassword', '');
+            $sHost = $this->oModuleSettings->CpanelHost;
+            $sPort = $this->oModuleSettings->CpanelPort;
+            $sUser = $this->oModuleSettings->CpanelUser;
+            $sPassword = $this->oModuleSettings->CpanelPassword;
 
             $oAuthenticatedUser = \Aurora\System\Api::getAuthenticatedUser();
             if ($iTenantId !== 0 && $oAuthenticatedUser && $oAuthenticatedUser->Role === \Aurora\System\Enums\UserRole::SuperAdmin) {
@@ -179,7 +181,7 @@ class Module extends \Aurora\System\Module\AbstractModule
                 if ($oCpanel) {
                     $sDomain = \MailSo\Base\Utils::GetDomainFromEmail($oUser->PublicId);
                     if (!empty($sDomain) && $this->isDomainSupported($sDomain)) {
-                        $iQuota = (int) $this->getConfig('UserDefaultQuotaMB', 1);
+                        $iQuota = (int) $this->oModuleSettings->UserDefaultQuotaMB;
                         try {
                             $sCpanelResponse = $this->executeCpanelAction(
                                 $oCpanel,
@@ -254,7 +256,7 @@ class Module extends \Aurora\System\Module\AbstractModule
             $sDomain = \MailSo\Base\Utils::GetDomainFromEmail($sAccountEmail);
             if (!empty($sDomain) && $this->isDomainSupported($sDomain)) {
                 $aTenantQuota = \Aurora\Modules\Mail\Module::Decorator()->GetEntitySpaceLimits('Tenant', $oUser->Id, $oUser->IdTenant);
-                $iQuota = $aTenantQuota ? $aTenantQuota['UserSpaceLimitMb'] : (int) $this->getConfig('UserDefaultQuotaMB', 1);
+                $iQuota = $aTenantQuota ? $aTenantQuota['UserSpaceLimitMb'] : (int) $this->oModuleSettings->UserDefaultQuotaMB;
                 $oCpanel = $this->getCpanel($oUser->IdTenant);
                 $sCpanelResponse = $this->executeCpanelAction(
                     $oCpanel,
@@ -747,12 +749,12 @@ class Module extends \Aurora\System\Module\AbstractModule
      */
     protected function isDomainSupported($sDomain)
     {
-        $bSupported = in_array('*', $this->getConfig('SupportedServers', array()));
+        $bSupported = in_array('*', $this->oModuleSettings->SupportedServers);
 
         if (!$bSupported) {
             $aGetMailServerResult = MailModule::Decorator()->GetMailServerByDomain($sDomain, /*AllowWildcardDomain*/true);
             if (!empty($aGetMailServerResult) && isset($aGetMailServerResult['Server']) && $aGetMailServerResult['Server'] instanceof \Aurora\Modules\Mail\Models\Server) {
-                $bSupported = in_array($aGetMailServerResult['Server']->IncomingServer, $this->getConfig('SupportedServers'));
+                $bSupported = in_array($aGetMailServerResult['Server']->IncomingServer, $this->oModuleSettings->SupportedServers);
             }
         }
 
@@ -766,12 +768,12 @@ class Module extends \Aurora\System\Module\AbstractModule
      */
     protected function isAccountServerSupported($oAccount)
     {
-        $bSupported = in_array('*', $this->getConfig('SupportedServers', array()));
+        $bSupported = in_array('*', $this->oModuleSettings->SupportedServers);
 
         if (!$bSupported) {
             $oServer = $oAccount->getServer();
             if ($oServer instanceof \Aurora\Modules\Mail\Models\Server) {
-                $bSupported = in_array($oServer->IncomingServer, $this->getConfig('SupportedServers'));
+                $bSupported = in_array($oServer->IncomingServer, $this->oModuleSettings->SupportedServers);
             }
         }
 
@@ -790,9 +792,9 @@ class Module extends \Aurora\System\Module\AbstractModule
         $bResult = false;
 
         if (0 < strlen($oAccount->IncomingPassword) && $oAccount->IncomingPassword !== $sPassword) {
-            $cpanel_host = $this->getConfig('CpanelHost', '');
-            $cpanel_user = $this->getConfig('CpanelUser', '');
-            $cpanel_pass = $this->getConfig('CpanelPassword', '');
+            $cpanel_host = $this->oModuleSettings->CpanelHost;
+            $cpanel_user = $this->oModuleSettings->CpanelUser;
+            $cpanel_pass = $this->oModuleSettings->CpanelPassword;
             $cpanel_user0 = null;
 
             $oUser = \Aurora\System\Api::getUserById($oAccount->IdUser);
@@ -890,7 +892,7 @@ class Module extends \Aurora\System\Module\AbstractModule
                 ]
             );
             $aParseResult = self::parseResponse($sCpanelResponse); // throws exception in case if error has occured
-            $sForwardScriptPath = $this->getConfig('ForwardScriptPath', \dirname(__FILE__) . DIRECTORY_SEPARATOR . 'scripts' . DIRECTORY_SEPARATOR . 'process_mail.php');
+            $sForwardScriptPath = $this->oModuleSettings->ForwardScriptPath ?: \dirname(__FILE__) . DIRECTORY_SEPARATOR . 'scripts' . DIRECTORY_SEPARATOR . 'process_mail.php';
             if ($aParseResult
                 && isset($aParseResult['Data'])
                 && is_array($aParseResult['Data'])
@@ -1507,7 +1509,7 @@ class Module extends \Aurora\System\Module\AbstractModule
             $aAliases = $this->getManager('Aliases')->getAliasesByUserId($oUser->Id);
             //is Server Supported
             $oServer = MailModule::getInstance()->getServersManager()->getServer($oAccount->ServerId);
-            $bSupported = in_array($oServer->IncomingServer, $this->getConfig('SupportedServers'));
+            $bSupported = in_array($oServer->IncomingServer, $this->oModuleSettings->SupportedServers);
             if ($bSupported) {
                 $aServerDomainsByTenant = MailModule::Decorator()->GetServerDomains($oAccount->ServerId, $oUser->IdTenant);
                 //Get forwarders for all supported domains
@@ -1807,8 +1809,8 @@ class Module extends \Aurora\System\Module\AbstractModule
                     $oCpanel = $this->getCpanel($oUser->IdTenant);
                     $sEmail = $oAccount->Email;
                     $sDomain = \MailSo\Base\Utils::GetDomainFromEmail($oUser->PublicId);
-                    $sForwardScriptPath = $this->getConfig('ForwardScriptPath', \dirname(__FILE__) . DIRECTORY_SEPARATOR . 'scripts' . DIRECTORY_SEPARATOR . 'process_mail.php');
-                    if ($oCpanel && $sDomain && $sEmail && !empty($sForwardScriptPath)) {
+                    $sForwardScriptPath = $this->oModuleSettings->ForwardScriptPath ?: \dirname(__FILE__) . DIRECTORY_SEPARATOR . 'scripts' . DIRECTORY_SEPARATOR . 'process_mail.php';
+                    if ($oCpanel && $sDomain && $sEmail) {
                         $sCpanelResponse = $this->executeCpanelAction(
                             $oCpanel,
                             'Email',
@@ -1859,9 +1861,9 @@ class Module extends \Aurora\System\Module\AbstractModule
                     $oCpanel = $this->getCpanel($oUser->IdTenant);
                     $sEmail = $oAccount->Email;
                     $sDomain = \MailSo\Base\Utils::GetDomainFromEmail($oUser->PublicId);
-                    $sForwardScriptPath = $this->getConfig('ForwardScriptPath', \dirname(__FILE__) . DIRECTORY_SEPARATOR . 'scripts' . DIRECTORY_SEPARATOR . 'process_mail.php');
+                    $sForwardScriptPath = $this->oModuleSettings->ForwardScriptPath ?: \dirname(__FILE__) . DIRECTORY_SEPARATOR . 'scripts' . DIRECTORY_SEPARATOR . 'process_mail.php';
 
-                    if ($oCpanel && $sDomain && $sEmail && !empty($sForwardScriptPath)) {
+                    if ($oCpanel && $sDomain && $sEmail) {
                         $sCpanelResponse = $this->executeCpanelAction(
                             $oCpanel,
                             'Email',
@@ -1899,14 +1901,12 @@ class Module extends \Aurora\System\Module\AbstractModule
                 $sFromEmail = $oAccount->Email;
                 $oUser = \Aurora\Modules\Core\Module::Decorator()->GetUserWithoutRoleCheck($oAccount->IdUser);
                 if ($oUser instanceof \Aurora\Modules\Core\Models\User) {
-                    $sForwardScriptPath = $this->getConfig('ForwardScriptPath', \dirname(__FILE__) . DIRECTORY_SEPARATOR . 'scripts' . DIRECTORY_SEPARATOR . 'process_mail.php');
-                    if (!empty($sForwardScriptPath)) {
-                        try {
-                            $this->deleteForwarder($sFromEmail, '|' . $sForwardScriptPath, $oUser->IdTenant);
-                            $bResult = true;
-                        } catch (\Exception $oEx) {
-                            $bResult = false;
-                        }
+                    $sForwardScriptPath = $this->oModuleSettings->ForwardScriptPath ?: \dirname(__FILE__) . DIRECTORY_SEPARATOR . 'scripts' . DIRECTORY_SEPARATOR . 'process_mail.php';
+                    try {
+                        $this->deleteForwarder($sFromEmail, '|' . $sForwardScriptPath, $oUser->IdTenant);
+                        $bResult = true;
+                    } catch (\Exception $oEx) {
+                        $bResult = false;
                     }
                 }
             }
