@@ -1469,22 +1469,26 @@ class Module extends \Aurora\System\Module\AbstractModule
             $oTenant = \Aurora\System\Api::getTenantById($TenantId);
 
             if ($oTenant) {
-                $oSettings->SetTenantValue($oTenant->Name, 'CpanelHost', $CpanelHost);
-                $oSettings->SetTenantValue($oTenant->Name, 'CpanelPort', $CpanelPort);
-                $oSettings->SetTenantValue($oTenant->Name, 'CpanelUser', $CpanelUser);
+                $aValues = [
+                    'CpanelHost' => $CpanelHost,
+                    'CpanelPort' => $CpanelPort,
+                    'CpanelUser' => $CpanelUser
+                ];
                 if ($CpanelPassword !== '') {
-                    $oSettings->SetTenantValue($oTenant->Name, 'CpanelPassword', $CpanelPassword);
+                    $aValues['CpanelPassword'] = $CpanelPassword;
+                } else {
+                    $aValues['CpanelPassword'] =  $oSettings->GetTenantValue($oTenant->Name, 'CpanelPassword');
                 }
-                $result = $oSettings->SaveTenantSettings($oTenant->Name);
+                $result = $oSettings->SaveTenantSettings($oTenant->Name, $aValues);
             }
         } else {
             \Aurora\System\Api::checkUserRoleIsAtLeast(\Aurora\System\Enums\UserRole::SuperAdmin);
 
-            $oSettings->SetValue('CpanelHost', $CpanelHost);
-            $oSettings->SetValue('CpanelPort', $CpanelPort);
-            $oSettings->SetValue('CpanelUser', $CpanelUser);
+            $oSettings->CpanelHost = $CpanelHost;
+            $oSettings->CpanelPort = $CpanelPort;
+            $oSettings->CpanelUser = $CpanelUser;
             if ($CpanelPassword !== '') {
-                $oSettings->SetValue('CpanelPassword', $CpanelPassword);
+                $oSettings->CpanelPassword = $CpanelPassword;
             }
             $result = $oSettings->Save();
         }
