@@ -141,7 +141,7 @@ if ($fd && \Aurora\System\Api::GetModuleManager()->IsAllowedModule('PushNotifica
             /** @var \Aurora\Modules\PushNotificator\Module $oPushNotificatorModule */
             $oPushNotificatorModule = \Aurora\System\Api::GetModule('PushNotificator');
             if ($oPushNotificatorModule) {
-                $Secret = $oPushNotificatorModule->getConfig('Secret', '');
+                $Secret = $oPushNotificatorModule->oModuleSettings->Secret;
                 \Aurora\System\Api::Log(\json_encode([$Data]), \Aurora\System\Enums\LogLevel::Full, 'push-');
                 /** @var \Aurora\Modules\PushNotificator\Module $oPushNotificatorModuleDecorator */
                 $oPushNotificatorModuleDecorator = $oPushNotificatorModule::Decorator();

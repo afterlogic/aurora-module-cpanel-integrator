@@ -34,14 +34,23 @@ class Module extends \Aurora\System\Module\AbstractModule
 
     public $oMailModule = null;
 
-    /** @return Module */
+    /**
+     * @return Module
+     */
+    public static function getInstance()
+    {
+        return parent::getInstance();
+    }
+
+    /**
+     * @return Module
+     */
     public static function Decorator()
     {
         return parent::Decorator();
     }
 
     /**
-     *
      * @return Settings
      */
     public function getModuleSettings()
@@ -411,11 +420,12 @@ class Module extends \Aurora\System\Module\AbstractModule
             }
             $mResult['Extend']['AllowChangePasswordOnMailServer'] = true;
 
-            $oMailModule = \Aurora\System\Api::GetModule('Mail');
-            if ($oMailModule) {
-                $mResult['AllowFilters'] = $oMailModule->getConfig('AllowFilters', '');
-                $mResult['AllowForward'] = $oMailModule->getConfig('AllowForward', '');
-                $mResult['AllowAutoresponder'] = $oMailModule->getConfig('AllowAutoresponder', '');
+            if (class_exists('\Aurora\Modules\Mail\Module')) {
+                $oMailModule = \Aurora\Modules\Mail\Module::getInstance();
+                
+                $mResult['AllowFilters'] = $oMailModule->oModuleSettings->AllowFilters;
+                $mResult['AllowForward'] = $oMailModule->oModuleSettings->AllowForward;
+                $mResult['AllowAutoresponder'] = $oMailModule->oModuleSettings->AllowAutoresponder;
             }
 
             $oUser = \Aurora\Modules\Core\Module::Decorator()->GetUserWithoutRoleCheck($oAccount->IdUser);
