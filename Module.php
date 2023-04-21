@@ -126,7 +126,7 @@ class Module extends \Aurora\System\Module\AbstractModule
 
             $oAuthenticatedUser = \Aurora\System\Api::getAuthenticatedUser();
             if ($iTenantId !== 0 && $oAuthenticatedUser && $oAuthenticatedUser->Role === \Aurora\System\Enums\UserRole::SuperAdmin) {
-                $oSettings = $this->getModuleSettings();
+                $oSettings = $this->oModuleSettings;
                 $oTenant = \Aurora\System\Api::getTenantById($iTenantId);
                 $sHost = $oSettings->GetTenantValue($oTenant->Name, 'CpanelHost', '');
                 $sPort = $oSettings->GetTenantValue($oTenant->Name, 'CpanelPort', '');
@@ -329,7 +329,6 @@ class Module extends \Aurora\System\Module\AbstractModule
 
                 $this->deleteAutoresponder($oAccount->Email, $oUser->IdTenant);
 
-                $oSettings = $this->getModuleSettings();
                 //Checking if an account exists on CPanel
                 $oCpanel = $this->getCpanel($oUser->IdTenant);
                 if ($oCpanel) {
@@ -346,7 +345,7 @@ class Module extends \Aurora\System\Module\AbstractModule
                         && isset($aParseResult['Data'])
                         && is_array($aParseResult['Data'])
                         && count($aParseResult['Data']) > 0
-                        && $oSettings->GetValue('AllowCreateDeleteAccountOnCpanel', false)
+                        && $this->oModuleSettings->AllowCreateDeleteAccountOnCpanel
                         && self::$bAllowDeleteFromMailServerIfPossible
                     ) {
                         $sCpanelResponse = $this->executeCpanelAction(
@@ -1409,18 +1408,18 @@ class Module extends \Aurora\System\Module\AbstractModule
      */
     public function GetSettings($TenantId = null)
     {
-        $oSettings = $this->getModuleSettings();
+        $oSettings = $this->oModuleSettings;
 
         if (empty($TenantId)) {
             $oAuthenticatedUser = \Aurora\System\Api::getAuthenticatedUser();
             if ($oAuthenticatedUser instanceof \Aurora\Modules\Core\Models\User && $oAuthenticatedUser->Role === \Aurora\System\Enums\UserRole::NormalUser) {
                 return [
-                    'AllowAliases' => $oSettings->GetValue('AllowAliases', false)
+                    'AllowAliases' => $oSettings->AllowAliases
                 ];
             } elseif ($oAuthenticatedUser instanceof \Aurora\Modules\Core\Models\User && $oAuthenticatedUser->Role === \Aurora\System\Enums\UserRole::TenantAdmin) {
                 return [
-                    'AllowAliases' => $oSettings->GetValue('AllowAliases', false),
-                    'AllowCreateDeleteAccountOnCpanel' => $oSettings->GetValue('AllowCreateDeleteAccountOnCpanel', false),
+                    'AllowAliases' => $oSettings->AllowAliases,
+                    'AllowCreateDeleteAccountOnCpanel' => $oSettings->AllowCreateDeleteAccountOnCpanel,
                 ];
             }
         }
@@ -1441,12 +1440,12 @@ class Module extends \Aurora\System\Module\AbstractModule
 
         \Aurora\System\Api::checkUserRoleIsAtLeast(\Aurora\System\Enums\UserRole::SuperAdmin);
         return [
-            'CpanelHost' => $oSettings->GetValue('CpanelHost', ''),
-            'CpanelPort' => $oSettings->GetValue('CpanelPort', ''),
-            'CpanelUser' => $oSettings->GetValue('CpanelUser', ''),
-            'CpanelHasPassword' => $oSettings->GetValue('CpanelPassword', '') !== '',
-            'AllowAliases' => $oSettings->GetValue('AllowAliases', false),
-            'AllowCreateDeleteAccountOnCpanel' => $oSettings->GetValue('AllowCreateDeleteAccountOnCpanel', false),
+            'CpanelHost' => $oSettings->CpanelHost,
+            'CpanelPort' => $oSettings->CpanelPort,
+            'CpanelUser' => $oSettings->CpanelUser,
+            'CpanelHasPassword' => $oSettings->CpanelPassword !== '',
+            'AllowAliases' => $oSettings->AllowAliases,
+            'AllowCreateDeleteAccountOnCpanel' => $oSettings->AllowCreateDeleteAccountOnCpanel,
         ];
     }
 
@@ -1463,7 +1462,7 @@ class Module extends \Aurora\System\Module\AbstractModule
     public function UpdateSettings($CpanelHost, $CpanelPort, $CpanelUser, $CpanelPassword, $TenantId = null)
     {
         $result = false;
-        $oSettings = $this->getModuleSettings();
+        $oSettings = $this->oModuleSettings;
         if (!empty($TenantId)) {
             \Aurora\System\Api::checkUserRoleIsAtLeast(\Aurora\System\Enums\UserRole::TenantAdmin);
             $oTenant = \Aurora\System\Api::getTenantById($TenantId);
