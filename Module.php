@@ -421,7 +421,7 @@ class Module extends \Aurora\System\Module\AbstractModule
 
             if (class_exists('\Aurora\Modules\Mail\Module')) {
                 $oMailModule = \Aurora\Modules\Mail\Module::getInstance();
-                
+
                 $mResult['AllowFilters'] = $oMailModule->oModuleSettings->AllowFilters;
                 $mResult['AllowForward'] = $oMailModule->oModuleSettings->AllowForward;
                 $mResult['AllowAutoresponder'] = $oMailModule->oModuleSettings->AllowAutoresponder;
@@ -1032,16 +1032,14 @@ class Module extends \Aurora\System\Module\AbstractModule
                 && isset($aParseResult['Data'])
                 && isset($aParseResult['Data']->subject)
             ) {
-                /* @phpstan-ignore-next-line */
-                if ($aParseResult['Data']->stop !== null && $aParseResult['Data']->stop < time()) {
+                if (isset($aParseResult['Data']->stop) && $aParseResult['Data']->stop !== null && $aParseResult['Data']->stop < time()) {
                     $bEnable = false;
                 } else {
                     $bEnable = true;
                 }
                 $mResult = [
                     'Subject' => $aParseResult['Data']->subject,
-                    /* @phpstan-ignore-next-line */
-                    'Message' => $aParseResult['Data']->body,
+                    'Message' => isset($aParseResult['Data']->body) ? $aParseResult['Data']->body : '',
                     'Enable' => $bEnable
                 ];
             }
@@ -1225,11 +1223,12 @@ class Module extends \Aurora\System\Module\AbstractModule
         if ($oResult
             && isset($oResult->result)
             && isset($oResult->result->status)
+            && isset($oResult->result->data)
             && $oResult->result->status === 1
         ) {
             $aResult = [
                 'Status' => true,
-                'Data' => $oResult->result->data /* @phpstan-ignore-line */
+                'Data' => $oResult->result->data
             ];
         } elseif ($oResult && isset($oResult->error)) {
             $aResult = [
