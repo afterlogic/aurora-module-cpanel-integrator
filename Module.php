@@ -123,15 +123,29 @@ class Module extends \Aurora\System\Module\AbstractModule
             $sPort = $this->oModuleSettings->CpanelPort;
             $sUser = $this->oModuleSettings->CpanelUser;
             $sPassword = $this->oModuleSettings->CpanelPassword;
+            if ($sPassword && !\Aurora\System\Utils::IsEncryptedValue($sPassword)) {
+                $bPrevState = \Aurora\System\Api::skipCheckUserRole(true);
+                $this->Decorator()->UpdateSettings($sHost, $sPort, $sUser, \Aurora\System\Utils::EncryptValue($sPassword), null);
+                $bPrevState = \Aurora\System\Api::skipCheckUserRole($bPrevState);
+            } else {
+                $sPassword = \Aurora\System\Utils::DecryptValue($sPassword);
+            }
 
             $oAuthenticatedUser = \Aurora\System\Api::getAuthenticatedUser();
-            if ($iTenantId !== 0 && $oAuthenticatedUser && $oAuthenticatedUser->Role === \Aurora\System\Enums\UserRole::SuperAdmin) {
+            if (\Aurora\System\Api::GetSettings()->GetValue('EnableMultiTenant') && $iTenantId !== 0 && $oAuthenticatedUser && $oAuthenticatedUser->Role === \Aurora\System\Enums\UserRole::SuperAdmin) {
                 $oSettings = $this->oModuleSettings;
                 $oTenant = \Aurora\System\Api::getTenantById($iTenantId);
                 $sHost = $oSettings->GetTenantValue($oTenant->Name, 'CpanelHost', '');
                 $sPort = $oSettings->GetTenantValue($oTenant->Name, 'CpanelPort', '');
                 $sUser = $oSettings->GetTenantValue($oTenant->Name, 'CpanelUser', '');
                 $sPassword = $oSettings->GetTenantValue($oTenant->Name, 'CpanelPassword', '');
+                if ($sPassword && !\Aurora\System\Utils::IsEncryptedValue($sPassword)) {
+                    if ($oSettings->IsTenantSettingsExists($oTenant->Name)) {
+                        $this->Decorator()->UpdateSettings($sHost, $sPort, $sUser, \Aurora\System\Utils::EncryptValue($sPassword), $iTenantId);
+                    }
+                } else {
+                    $sPassword = \Aurora\System\Utils::DecryptValue($sPassword);
+                }
             }
 
             $this->oCpanel[$iTenantId] = new \Gufy\CpanelPhp\Cpanel([
@@ -805,13 +819,30 @@ class Module extends \Aurora\System\Module\AbstractModule
             $cpanel_user = $this->oModuleSettings->CpanelUser;
             $cpanel_pass = $this->oModuleSettings->CpanelPassword;
             $cpanel_user0 = null;
+            if ($cpanel_pass && !\Aurora\System\Utils::IsEncryptedValue($cpanel_pass)) {
+                $bPrevState = \Aurora\System\Api::skipCheckUserRole(true);
+                $this->Decorator()->UpdateSettings($cpanel_host, $this->oModuleSettings->CpanelPort, $cpanel_user, \Aurora\System\Utils::EncryptValue($cpanel_pass), null);
+                $bPrevState = \Aurora\System\Api::skipCheckUserRole($bPrevState);
+            } else {
+                $cpanel_pass = \Aurora\System\Utils::DecryptValue($cpanel_pass);
+            }
 
+            $oSettings =& \Aurora\System\Api::GetSettings();
             $oUser = \Aurora\System\Api::getUserById($oAccount->IdUser);
             $oTenant = $oUser instanceof \Aurora\Modules\Core\Models\User ? \Aurora\System\Api::getTenantById($oUser->IdTenant) : null;
-            if ($oTenant instanceof \Aurora\Modules\Core\Models\Tenant) {
+            if ($oSettings->GetValue('EnableMultiTenant') && $oTenant instanceof \Aurora\Modules\Core\Models\Tenant) {
                 $cpanel_host = $this->oModuleSettings->GetTenantValue($oTenant->Name, 'CpanelHost', '');
                 $cpanel_user = $this->oModuleSettings->GetTenantValue($oTenant->Name, 'CpanelUser', '');
                 $cpanel_pass = $this->oModuleSettings->GetTenantValue($oTenant->Name, 'CpanelPassword', '');
+                if ($cpanel_pass && !\Aurora\System\Utils::IsEncryptedValue($cpanel_pass)) {
+                    if ($this->oModuleSettings->IsTenantSettingsExists($oTenant->Name)) {
+                        $bPrevState = \Aurora\System\Api::skipCheckUserRole(true);
+                        $this->Decorator()->UpdateSettings($cpanel_host, $this->oModuleSettings->GetTenantValue($oTenant->Name, 'CpanelPort'), $cpanel_user, \Aurora\System\Utils::EncryptValue($cpanel_pass), $oTenant->Id);
+                        $bPrevState = \Aurora\System\Api::skipCheckUserRole($bPrevState);
+                    }
+                } else {
+                    $cpanel_pass = \Aurora\System\Utils::DecryptValue($cpanel_pass);
+                }
             }
 
             $email_user = urlencode($oAccount->Email);
