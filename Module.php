@@ -1600,7 +1600,7 @@ class Module extends \Aurora\System\Module\AbstractModule
             return [
                 'Domain'		=> $sDomain,
                 'Aliases'		=> $aForwardersFromEmail,
-                'ObjAliases'	=> $aAliases->toArray()
+                'ObjAliases'	=> $aAliases->all()
             ];
         }
 
