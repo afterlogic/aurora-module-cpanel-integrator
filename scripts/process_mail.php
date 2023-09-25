@@ -49,7 +49,7 @@ if ($fd && \Aurora\System\Api::GetModuleManager()->IsAllowedModule('PushNotifica
             if ('=?' === \substr($sHeadersValue, 0, 2)) {
                 $sValue .= $sHeadersValue;
             } else {
-                $sValue .= "\n".$sHeadersValue;
+                $sValue .= "\n" . $sHeadersValue;
             }
         } else {
             if (null !== $sName) {

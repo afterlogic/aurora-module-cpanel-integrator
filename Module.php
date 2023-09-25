@@ -827,7 +827,7 @@ class Module extends \Aurora\System\Module\AbstractModule
                 $cpanel_pass = \Aurora\System\Utils::DecryptValue($cpanel_pass);
             }
 
-            $oSettings =& \Aurora\System\Api::GetSettings();
+            $oSettings = &\Aurora\System\Api::GetSettings();
             $oUser = \Aurora\System\Api::getUserById($oAccount->IdUser);
             $oTenant = $oUser instanceof \Aurora\Modules\Core\Models\User ? \Aurora\System\Api::getTenantById($oUser->IdTenant) : null;
             if ($oSettings->GetValue('EnableMultiTenant') && $oTenant instanceof \Aurora\Modules\Core\Models\Tenant) {
@@ -898,7 +898,7 @@ class Module extends \Aurora\System\Module\AbstractModule
                 \Aurora\System\Api::Log('..:: QUERY ::.. ' . $query);
                 $json_res = json_decode($result, true);
                 \Aurora\System\Api::Log('..:: RESULT ::.. ' . $result);
-                if ((isset($json_res['errors']))&&($json_res['errors']!==null)) {
+                if ((isset($json_res['errors'])) && ($json_res['errors'] !== null)) {
                     $sErrorText = is_string($json_res['errors']) ? $json_res['errors'] : (is_array($json_res['errors']) && isset($json_res['errors'][0]) ? $json_res['errors'][0] : '');
                     throw new \Aurora\System\Exceptions\ApiException(\Aurora\System\Exceptions\Errs::UserManager_AccountNewPasswordUpdateError, null, $sErrorText);
                 } else {
@@ -939,7 +939,7 @@ class Module extends \Aurora\System\Module\AbstractModule
                 && count($aParseResult['Data']) > 0
             ) {
                 foreach ($aParseResult['Data'] as $oData) {
-                    if ($oData->forward !== '|'.$sForwardScriptPath) {
+                    if ($oData->forward !== '|' . $sForwardScriptPath) {
                         $aResult = [
                             'Email' => $oData->forward
                         ];
@@ -1313,7 +1313,7 @@ class Module extends \Aurora\System\Module\AbstractModule
             $sDestEmail = "";
             if ($oCPanelFilter->actions[0]->action === 'deliver') {
                 $sDestEmail = $oCPanelFilter->actions[0]->dest;
-                $iAction =\Aurora\Modules\Mail\Enums\FilterAction::Redirect;
+                $iAction = \Aurora\Modules\Mail\Enums\FilterAction::Redirect;
             }
 
             switch ($oCPanelFilter->rules[0]->match) {
@@ -1870,7 +1870,7 @@ class Module extends \Aurora\System\Module\AbstractModule
                             && count($aParseResult['Data']) > 0
                         ) {
                             foreach ($aParseResult['Data'] as $oData) {
-                                if ($oData->forward === '|'.$sForwardScriptPath) {
+                                if ($oData->forward === '|' . $sForwardScriptPath) {
                                     $aResult = [
                                         'Email' => $oData->forward
                                     ];
