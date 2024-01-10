@@ -142,14 +142,16 @@ if ($fd && \Aurora\System\Api::GetModuleManager()->IsAllowedModule('PushNotifica
                 'Data' => [$aPushMessageData]
             ];
 
-            /** @var \Aurora\Modules\PushNotificator\Module $oPushNotificatorModule */
-            $oPushNotificatorModule = \Aurora\System\Api::GetModule('PushNotificator');
-            if ($oPushNotificatorModule) {
-                $Secret = $oPushNotificatorModule->oModuleSettings->Secret;
-                \Aurora\System\Api::Log(\json_encode([$Data]), \Aurora\System\Enums\LogLevel::Full, 'push-');
-                /** @var \Aurora\Modules\PushNotificator\Module $oPushNotificatorModuleDecorator */
-                $oPushNotificatorModuleDecorator = $oPushNotificatorModule::Decorator();
-                $oPushNotificatorModuleDecorator->SendPush($Secret, [$Data]);
+            if (class_exists('\Aurora\Modules\PushNotificator\Module')) {
+                /** @var \Aurora\Modules\PushNotificator\Module $oPushNotificatorModule */
+                $oPushNotificatorModule = \Aurora\System\Api::GetModule('PushNotificator');
+                if ($oPushNotificatorModule) {
+                    $Secret = $oPushNotificatorModule->oModuleSettings->Secret;
+                    \Aurora\System\Api::Log(\json_encode([$Data]), \Aurora\System\Enums\LogLevel::Full, 'push-');
+                    /** @var \Aurora\Modules\PushNotificator\Module $oPushNotificatorModuleDecorator */
+                    $oPushNotificatorModuleDecorator = $oPushNotificatorModule::Decorator();
+                    $oPushNotificatorModuleDecorator->SendPush($Secret, [$Data]);
+                }
             }
         }
     }
