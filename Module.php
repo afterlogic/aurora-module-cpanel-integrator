@@ -1254,7 +1254,7 @@ class Module extends \Aurora\System\Module\AbstractModule
         if ($oResult
             && isset($oResult->result)
             && isset($oResult->result->status)
-            && isset($oResult->result->data)
+            && (isset($oResult->result->data) || is_null($oResult->result->data))
             && $oResult->result->status === 1
         ) {
             $aResult = [
