@@ -87,7 +87,6 @@ class Module extends \Aurora\System\Module\AbstractModule
         $this->subscribeEvent('Mail::SaveMessage::before', array($this, 'onBeforeSendOrSaveMessage'));
         $this->subscribeEvent('Mail::SendMessage::before', array($this, 'onBeforeSendOrSaveMessage'));
 
-        $this->subscribeEvent('AdminPanelWebclient::DeleteEntities::before', array($this, 'onBeforeDeleteEntities'));/** @deprecated since version 8.3.7 **/
         $this->subscribeEvent('Core::DeleteTenant::before', array($this, 'onBeforeDeleteEntities'));
         $this->subscribeEvent('Core::DeleteTenants::before', array($this, 'onBeforeDeleteEntities'));
         $this->subscribeEvent('Core::DeleteUser::before', array($this, 'onBeforeDeleteEntities'));
