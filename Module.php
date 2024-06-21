@@ -27,7 +27,6 @@ class Module extends \Aurora\System\Module\AbstractModule
     public const UAPI = '3';
     private $oCpanel = [];
 
-    protected static $bAllowDeleteFromMailServerIfPossible = false;
     protected $aManagers = [
         'Aliases' => null
     ];
@@ -87,12 +86,6 @@ class Module extends \Aurora\System\Module\AbstractModule
         $this->subscribeEvent('Mail::SaveMessage::before', array($this, 'onBeforeSendOrSaveMessage'));
         $this->subscribeEvent('Mail::SendMessage::before', array($this, 'onBeforeSendOrSaveMessage'));
 
-        $this->subscribeEvent('Core::DeleteTenant::before', array($this, 'onBeforeDeleteEntities'));
-        $this->subscribeEvent('Core::DeleteTenants::before', array($this, 'onBeforeDeleteEntities'));
-        $this->subscribeEvent('Core::DeleteUser::before', array($this, 'onBeforeDeleteEntities'));
-        $this->subscribeEvent('Core::DeleteUsers::before', array($this, 'onBeforeDeleteEntities'));
-        $this->subscribeEvent('Mail::DeleteServer::before', array($this, 'onBeforeDeleteEntities'));
-        $this->subscribeEvent('MailDomains::DeleteDomains::before', array($this, 'onBeforeDeleteEntities'));
         $this->subscribeEvent('Mail::IsEmailAllowedForCreation::after', array($this, 'onAfterIsEmailAllowedForCreation'));
     }
 
@@ -300,18 +293,6 @@ class Module extends \Aurora\System\Module\AbstractModule
     }
 
     /**
-     * Sets flag that allows to delete mail account on cPanel.
-     * @param array $aArgs
-     * @param mixed $mResult
-     */
-    public function onBeforeDeleteEntities($aArgs, &$mResult)
-    {
-        if (isset($aArgs['DeletionConfirmedByAdmin']) && $aArgs['DeletionConfirmedByAdmin'] === true) {
-            self::$bAllowDeleteFromMailServerIfPossible = true;
-        }
-    }
-
-    /**
      * Deletes cPanel account, its aliases, forward, autoresponder and filters.
      * @param array $aArgs
      * @param mixed $mResult
@@ -359,7 +340,6 @@ class Module extends \Aurora\System\Module\AbstractModule
                         && is_array($aParseResult['Data'])
                         && count($aParseResult['Data']) > 0
                         && $this->oModuleSettings->AllowCreateDeleteAccountOnCpanel
-                        && self::$bAllowDeleteFromMailServerIfPossible
                     ) {
                         $sCpanelResponse = $this->executeCpanelAction(
                             $oCpanel,

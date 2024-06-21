@@ -7,12 +7,6 @@ import eventBus from 'src/event-bus'
 import CpanelAdminSettingsPerTenant from './components/CpanelAdminSettingsPerTenant'
 import CpanelAliasesAdminSettingsPerUser from './components/CpanelAliasesAdminSettingsPerUser'
 
-const _handleUserDeletion = ({ moduleName, methodName, parameters }) => {
-  if (moduleName === 'Core' && methodName === 'DeleteUsers') {
-    parameters.DeletionConfirmedByAdmin = true
-  }
-}
-
 export default {
   moduleName: 'CpanelIntegrator',
 
@@ -20,11 +14,6 @@ export default {
 
   init (appData) {
     settings.init(appData)
-  },
-
-  initSubscriptions (appData) {
-    eventBus.$off('webApi::Request', _handleUserDeletion)
-    eventBus.$on('webApi::Request', _handleUserDeletion)
   },
 
   getAdminSystemTabs () {
