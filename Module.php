@@ -74,8 +74,7 @@ class Module extends \Aurora\System\Module\AbstractModule
         }
         $this->subscribeEvent('MailSignup::Signup::before', [$this, 'onAfterSignup']);
         $this->subscribeEvent('Mail::Account::ToResponseArray', array($this, 'onMailAccountToResponseArray'));
-        $this->subscribeEvent('Mail::ChangeAccountPassword', array($this, 'onChangeAccountPassword'));
-        $this->subscribeEvent('StandardResetPassword::ChangeAccountPassword', array($this, 'onChangeAccountPassword'));
+        $this->subscribeEvent('ChangeAccountPassword', array($this, 'onChangeAccountPassword'));
         $this->subscribeEvent('Mail::UpdateForward::before', array($this, 'onBeforeUpdateForward'));
         $this->subscribeEvent('Mail::GetForward::before', array($this, 'onBeforeGetForward'));
         $this->subscribeEvent('Mail::GetAutoresponder::before', array($this, 'onBeforeGetAutoresponder'));
@@ -444,7 +443,7 @@ class Module extends \Aurora\System\Module\AbstractModule
         $oAccount = $aArguments['Account'];
         if ($oAccount instanceof \Aurora\Modules\Mail\Models\MailAccount
                 && $this->isAccountServerSupported($oAccount)
-                && ($oAccount->getPassword() === $aArguments['CurrentPassword'] || isset($aArguments['SkipCurrentPasswordCheck']) && $aArguments['SkipCurrentPasswordCheck'])) {
+                && ($oAccount->getPassword() === $aArguments['CurrentPassword'])) {
             $bPasswordChanged = $this->changePassword($oAccount, $aArguments['NewPassword']);
             $bBreakSubscriptions = true; // break if Cpanel plugin tries to change password in this account.
         }
