@@ -227,7 +227,7 @@ class Module extends \Aurora\System\Module\AbstractModule
                                         ],
                                         $iTime
                                     );
-                                    $mResult = ['AuthToken' => $sAuthToken];
+                                    $mResult = [\Aurora\System\Application::AUTH_TOKEN_KEY => $sAuthToken];
                                 }
                             } catch (\Exception $oException) {
                                 if ($oException instanceof \Aurora\Modules\Mail\Exceptions\Exception &&
