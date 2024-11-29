@@ -1417,45 +1417,43 @@ class Module extends \Aurora\System\Module\AbstractModule
      */
     public function GetSettings($TenantId = null)
     {
+        \Aurora\System\Api::checkUserRoleIsAtLeast(\Aurora\System\Enums\UserRole::NormalUser);
         $oSettings = $this->oModuleSettings;
+        $oAuthenticatedUser = \Aurora\System\Api::getAuthenticatedUser();
+        if ($oAuthenticatedUser instanceof \Aurora\Modules\Core\Models\User) {
+            if (empty($TenantId)) {
+                if ($oAuthenticatedUser->isNormalOrTenant()) {
+                    $aResult = ['AllowAliases' => $oSettings->AllowAliases];
+                    if ($oAuthenticatedUser->Role === \Aurora\System\Enums\UserRole::TenantAdmin) {
+                        $aResult['AllowCreateDeleteAccountOnCpanel'] = $oSettings->AllowCreateDeleteAccountOnCpanel;
+                    }
+                    return $aResult;
+                } elseif ($oAuthenticatedUser->isAdmin()) {
+                    return [
+                        'CpanelHost' => $oSettings->CpanelHost,
+                        'CpanelPort' => $oSettings->CpanelPort,
+                        'CpanelUser' => $oSettings->CpanelUser,
+                        'CpanelHasPassword' => $oSettings->CpanelPassword !== '',
+                        'AllowAliases' => $oSettings->AllowAliases,
+                        'AllowCreateDeleteAccountOnCpanel' => $oSettings->AllowCreateDeleteAccountOnCpanel,
+                    ];
+                }
+            } else {
+                \Aurora\System\Api::checkUserRoleIsAtLeast(\Aurora\System\Enums\UserRole::TenantAdmin);
+                $oTenant = \Aurora\System\Api::getTenantById($TenantId);
 
-        if (empty($TenantId)) {
-            $oAuthenticatedUser = \Aurora\System\Api::getAuthenticatedUser();
-            if ($oAuthenticatedUser instanceof \Aurora\Modules\Core\Models\User && $oAuthenticatedUser->Role === \Aurora\System\Enums\UserRole::NormalUser) {
-                return [
-                    'AllowAliases' => $oSettings->AllowAliases
-                ];
-            } elseif ($oAuthenticatedUser instanceof \Aurora\Modules\Core\Models\User && $oAuthenticatedUser->Role === \Aurora\System\Enums\UserRole::TenantAdmin) {
-                return [
-                    'AllowAliases' => $oSettings->AllowAliases,
-                    'AllowCreateDeleteAccountOnCpanel' => $oSettings->AllowCreateDeleteAccountOnCpanel,
-                ];
+                if ($oTenant && ($oAuthenticatedUser->isAdmin() || ($oAuthenticatedUser->Role === \Aurora\System\Enums\UserRole::TenantAdmin && $oAuthenticatedUser->IdTenant === $oTenant->Id))) {
+                    return [
+                        'CpanelHost' => $oSettings->GetTenantValue($oTenant->Name, 'CpanelHost', ''),
+                        'CpanelPort' => $oSettings->GetTenantValue($oTenant->Name, 'CpanelPort', ''),
+                        'CpanelUser' => $oSettings->GetTenantValue($oTenant->Name, 'CpanelUser', ''),
+                        'CpanelHasPassword' => $oSettings->GetTenantValue($oTenant->Name, 'CpanelPassword', '') !== '',
+                    ];
+                }
             }
         }
 
-        if (!empty($TenantId)) {
-            \Aurora\System\Api::checkUserRoleIsAtLeast(\Aurora\System\Enums\UserRole::TenantAdmin);
-            $oTenant = \Aurora\System\Api::getTenantById($TenantId);
-
-            if ($oTenant instanceof \Aurora\Modules\Core\Models\Tenant) {
-                return [
-                    'CpanelHost' => $oSettings->GetTenantValue($oTenant->Name, 'CpanelHost', ''),
-                    'CpanelPort' => $oSettings->GetTenantValue($oTenant->Name, 'CpanelPort', ''),
-                    'CpanelUser' => $oSettings->GetTenantValue($oTenant->Name, 'CpanelUser', ''),
-                    'CpanelHasPassword' => $oSettings->GetTenantValue($oTenant->Name, 'CpanelPassword', '') !== '',
-                ];
-            }
-        }
-
-        \Aurora\System\Api::checkUserRoleIsAtLeast(\Aurora\System\Enums\UserRole::SuperAdmin);
-        return [
-            'CpanelHost' => $oSettings->CpanelHost,
-            'CpanelPort' => $oSettings->CpanelPort,
-            'CpanelUser' => $oSettings->CpanelUser,
-            'CpanelHasPassword' => $oSettings->CpanelPassword !== '',
-            'AllowAliases' => $oSettings->AllowAliases,
-            'AllowCreateDeleteAccountOnCpanel' => $oSettings->AllowCreateDeleteAccountOnCpanel,
-        ];
+        return [];
     }
 
     /**
@@ -1471,12 +1469,16 @@ class Module extends \Aurora\System\Module\AbstractModule
     public function UpdateSettings($CpanelHost, $CpanelPort, $CpanelUser, $CpanelPassword, $TenantId = null)
     {
         $result = false;
+
+        \Aurora\System\Api::checkUserRoleIsAtLeast(\Aurora\System\Enums\UserRole::TenantAdmin);
+        $oAuthenticatedUser = \Aurora\System\Api::getAuthenticatedUser();
+
         $oSettings = $this->oModuleSettings;
         if (!empty($TenantId)) {
-            \Aurora\System\Api::checkUserRoleIsAtLeast(\Aurora\System\Enums\UserRole::TenantAdmin);
+
             $oTenant = \Aurora\System\Api::getTenantById($TenantId);
 
-            if ($oTenant) {
+            if ($oTenant && ($oAuthenticatedUser->isAdmin() || $oAuthenticatedUser->IdTenant === $oTenant->Id)) {
                 $aValues = [
                     'CpanelHost' => $CpanelHost,
                     'CpanelPort' => $CpanelPort,
