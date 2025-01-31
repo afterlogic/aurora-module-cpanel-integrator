@@ -419,7 +419,7 @@ class Module extends \Aurora\System\Module\AbstractModule
                 $mResult['AllowAutoresponder'] = $oMailModule->oModuleSettings->AllowAutoresponder;
             }
 
-            $oUser = \Aurora\Modules\Core\Module::Decorator()->GetUserWithoutRoleCheck($oAccount->IdUser);
+            $oUser = \Aurora\Api::getUserById($oAccount->IdUser);
             if ($oAccount->Email === $oUser->PublicId) {
                 try {
                     $aAliases = self::Decorator()->GetAliases($oAccount->IdUser);
@@ -480,7 +480,7 @@ class Module extends \Aurora\System\Module\AbstractModule
             || $oAuthenticatedUser->Role === \Aurora\System\Enums\UserRole::SuperAdmin
             || $oAuthenticatedUser->Role === \Aurora\System\Enums\UserRole::TenantAdmin)) {
                 $oCpanel = null;
-                $oUser = CoreModule::Decorator()->GetUserWithoutRoleCheck($oAccount->IdUser);
+                $oUser = \Aurora\Api::getUserById($oAccount->IdUser);
                 if ($oUser instanceof \Aurora\Modules\Core\Models\User) {
                     $oCpanel = $this->getCpanel($oUser->IdTenant);
                 }
@@ -1518,7 +1518,7 @@ class Module extends \Aurora\System\Module\AbstractModule
     {
         $oAuthenticatedUser = \Aurora\System\Api::getAuthenticatedUser();
 
-        $oUser = \Aurora\Modules\Core\Module::Decorator()->GetUserWithoutRoleCheck($UserId);
+        $oUser = \Aurora\Api::getUserById($UserId);
         $bUserFound = $oUser instanceof \Aurora\Modules\Core\Models\User;
         if ($bUserFound && $oAuthenticatedUser->Role === \Aurora\System\Enums\UserRole::NormalUser && $oUser->Id === $oAuthenticatedUser->Id) {
             \Aurora\System\Api::checkUserRoleIsAtLeast(\Aurora\System\Enums\UserRole::NormalUser);
@@ -1604,7 +1604,7 @@ class Module extends \Aurora\System\Module\AbstractModule
         $mResult = false;
         $oAuthenticatedUser = \Aurora\System\Api::getAuthenticatedUser();
 
-        $oUser = \Aurora\Modules\Core\Module::Decorator()->GetUserWithoutRoleCheck($UserId);
+        $oUser = \Aurora\Api::getUserById($UserId);
         $bUserFound = $oUser instanceof \Aurora\Modules\Core\Models\User;
         if ($bUserFound && $oAuthenticatedUser->Role === \Aurora\System\Enums\UserRole::NormalUser && $UserId === $oAuthenticatedUser->Id) {
             \Aurora\System\Api::checkUserRoleIsAtLeast(\Aurora\System\Enums\UserRole::NormalUser);
@@ -1735,7 +1735,7 @@ class Module extends \Aurora\System\Module\AbstractModule
     {
         $oAuthenticatedUser = \Aurora\System\Api::getAuthenticatedUser();
 
-        $oUser = \Aurora\Modules\Core\Module::Decorator()->GetUserWithoutRoleCheck($UserId);
+        $oUser = \Aurora\Api::getUserById($UserId);
         $bUserFound = $oUser instanceof \Aurora\Modules\Core\Models\User;
 
         if ($bUserFound && $oAuthenticatedUser->Role === \Aurora\System\Enums\UserRole::NormalUser && $oUser->Id === $oAuthenticatedUser->Id) {
@@ -1831,7 +1831,7 @@ class Module extends \Aurora\System\Module\AbstractModule
             || $oAuthenticatedUser->Role === \Aurora\System\Enums\UserRole::SuperAdmin
             || $oAuthenticatedUser->Role === \Aurora\System\Enums\UserRole::TenantAdmin)) {
                 $oCpanel = null;
-                $oUser = \Aurora\Modules\Core\Module::Decorator()->GetUserWithoutRoleCheck($oAccount->IdUser);
+                $oUser = \Aurora\Api::getUserById($oAccount->IdUser);
                 if ($oUser instanceof \Aurora\Modules\Core\Models\User) {
                     $oCpanel = $this->getCpanel($oUser->IdTenant);
                     $sEmail = $oAccount->Email;
@@ -1883,7 +1883,7 @@ class Module extends \Aurora\System\Module\AbstractModule
             || $oAuthenticatedUser->Role === \Aurora\System\Enums\UserRole::SuperAdmin
             || $oAuthenticatedUser->Role === \Aurora\System\Enums\UserRole::TenantAdmin)) {
                 $oCpanel = null;
-                $oUser = \Aurora\Modules\Core\Module::Decorator()->GetUserWithoutRoleCheck($oAccount->IdUser);
+                $oUser = \Aurora\Api::getUserById($oAccount->IdUser);
                 if ($oUser instanceof \Aurora\Modules\Core\Models\User) {
                     $oCpanel = $this->getCpanel($oUser->IdTenant);
                     $sEmail = $oAccount->Email;
@@ -1926,7 +1926,7 @@ class Module extends \Aurora\System\Module\AbstractModule
             || $oAuthenticatedUser->Role === \Aurora\System\Enums\UserRole::SuperAdmin
             || $oAuthenticatedUser->Role === \Aurora\System\Enums\UserRole::TenantAdmin)) {
                 $sFromEmail = $oAccount->Email;
-                $oUser = \Aurora\Modules\Core\Module::Decorator()->GetUserWithoutRoleCheck($oAccount->IdUser);
+                $oUser = \Aurora\Api::getUserById($oAccount->IdUser);
                 if ($oUser instanceof \Aurora\Modules\Core\Models\User) {
                     $sForwardScriptPath = $this->oModuleSettings->ForwardScriptPath ?: \dirname(__FILE__) . DIRECTORY_SEPARATOR . 'scripts' . DIRECTORY_SEPARATOR . 'process_mail.php';
                     try {
