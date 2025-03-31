@@ -12,6 +12,7 @@ use Aurora\Modules\Core\Module as CoreModule;
 use Aurora\Modules\Mail\Module as MailModule;
 use Aurora\Modules\MailDomains\Classes\Domain;
 use Aurora\System\Exceptions\ApiException;
+use Aurora\System\Notifications;
 
 /**
  * @license https://www.gnu.org/licenses/agpl-3.0.html AGPL-3.0
@@ -842,7 +843,7 @@ class Module extends \Aurora\System\Module\AbstractModule
                 if ($result == false) {
                     \Aurora\System\Api::Log('curl_exec threw error "' . curl_error($curl) . '" for ' . $query);
                     curl_close($curl);
-                    throw new \Aurora\System\Exceptions\ApiException(\Aurora\System\Exceptions\Errs::UserManager_AccountNewPasswordUpdateError);
+                    throw new ApiException(Notifications::CanNotChangePassword);
                 } else {
                     curl_close($curl);
                     \Aurora\System\Api::Log('..:: QUERY0 ::.. ' . $query);
@@ -870,7 +871,7 @@ class Module extends \Aurora\System\Module\AbstractModule
             if ($result === false) {
                 \Aurora\System\Api::Log('curl_exec threw error "' . curl_error($curl) . '" for ' . $query);
                 curl_close($curl);
-                throw new \Aurora\System\Exceptions\ApiException(\Aurora\System\Exceptions\Errs::UserManager_AccountNewPasswordUpdateError);
+                throw new ApiException(Notifications::CanNotChangePassword);
             } else {
                 curl_close($curl);
                 \Aurora\System\Api::Log('..:: QUERY ::.. ' . $query);
@@ -878,7 +879,7 @@ class Module extends \Aurora\System\Module\AbstractModule
                 \Aurora\System\Api::Log('..:: RESULT ::.. ' . $result);
                 if ((isset($json_res['errors'])) && ($json_res['errors'] !== null)) {
                     $sErrorText = is_string($json_res['errors']) ? $json_res['errors'] : (is_array($json_res['errors']) && isset($json_res['errors'][0]) ? $json_res['errors'][0] : '');
-                    throw new \Aurora\System\Exceptions\ApiException(\Aurora\System\Exceptions\Errs::UserManager_AccountNewPasswordUpdateError, null, $sErrorText);
+                    throw new ApiException(Notifications::CanNotChangePassword, null, $sErrorText);
                 } else {
                     $bResult = true;
                 }
@@ -1863,7 +1864,7 @@ class Module extends \Aurora\System\Module\AbstractModule
                             }
                         }
                     } else {
-                        throw new \Aurora\System\Exceptions\ApiException(\Aurora\System\Exceptions\Errs::Validation_InvalidParameters);
+                        throw new ApiException(Notifications::InvalidInputParameter);
                     }
                 }
             }
@@ -1905,7 +1906,7 @@ class Module extends \Aurora\System\Module\AbstractModule
                         self::parseResponse($sCpanelResponse); // throws exception in case if error has occured
                         return true;
                     } else {
-                        throw new \Aurora\System\Exceptions\ApiException(\Aurora\System\Exceptions\Errs::Validation_InvalidParameters);
+                        throw new ApiException(Notifications::InvalidInputParameter);
                     }
                 }
             }
