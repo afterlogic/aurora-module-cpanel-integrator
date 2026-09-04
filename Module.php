@@ -117,8 +117,11 @@ class Module extends \Aurora\System\Module\AbstractModule
             $sPassword = $this->oModuleSettings->CpanelPassword;
             if ($sPassword && !\Aurora\System\Utils::IsEncryptedValue($sPassword)) {
                 $bPrevState = \Aurora\System\Api::skipCheckUserRole(true);
-                $this->Decorator()->UpdateSettings($sHost, $sPort, $sUser, \Aurora\System\Utils::EncryptValue($sPassword), null);
-                $bPrevState = \Aurora\System\Api::skipCheckUserRole($bPrevState);
+                try {
+                    $this->Decorator()->UpdateSettings($sHost, $sPort, $sUser, \Aurora\System\Utils::EncryptValue($sPassword), null);
+                } finally {
+                    $bPrevState = \Aurora\System\Api::skipCheckUserRole($bPrevState);
+                }
             } else {
                 $sPassword = \Aurora\System\Utils::DecryptValue($sPassword);
             }
@@ -184,70 +187,71 @@ class Module extends \Aurora\System\Module\AbstractModule
             $sFriendlyName = isset($aArgs['Name']) ? trim($aArgs['Name']) : '';
             $bSignMe = isset($aArgs['SignMe']) ? (bool) $aArgs['SignMe'] : false;
             $bPrevState = \Aurora\System\Api::skipCheckUserRole(true);
-            $iUserId = \Aurora\Modules\Core\Module::Decorator()->CreateUser(0, $sLogin);
-            $oUser = \Aurora\System\Api::getUserById((int) $iUserId);
-            $oCpanel = null;
-            if ($oUser instanceof \Aurora\Modules\Core\Models\User) {
-                try {
-                    $oCpanel = $this->getCpanel($oUser->IdTenant);
-                } catch(\Exception $oException) {
-                }
+            try {
+                $iUserId = \Aurora\Modules\Core\Module::Decorator()->CreateUser(0, $sLogin);
+                $oUser = \Aurora\System\Api::getUserById((int) $iUserId);
+                $oCpanel = null;
+                if ($oUser instanceof \Aurora\Modules\Core\Models\User) {
+                    try {
+                        $oCpanel = $this->getCpanel($oUser->IdTenant);
+                    } catch(\Exception $oException) {
+                    }
 
-                if ($oCpanel) {
-                    $sDomain = \MailSo\Base\Utils::GetDomainFromEmail($oUser->PublicId);
-                    if (!empty($sDomain) && $this->isDomainSupported($sDomain)) {
-                        $iQuota = (int) $this->oModuleSettings->UserDefaultQuotaMB;
-                        try {
-                            $sCpanelResponse = $this->executeCpanelAction(
-                                $oCpanel,
-                                'Email',
-                                'add_pop',
-                                [
-                                    'email' => $sLogin,
-                                    'password' => $sPassword,
-                                    'quota'	=> $iQuota,
-                                    'domain' => $sDomain
-                                ]
-                            );
-                            $aParseResult = self::parseResponse($sCpanelResponse, false);
-                        } catch(\Exception $oException) {
-                            throw new ApiException(0, $oException, $oException->getMessage());
-                        }
-                        if (is_array($aParseResult) && isset($aParseResult['Data']) && !empty($aParseResult['Data'])) {
+                    if ($oCpanel) {
+                        $sDomain = \MailSo\Base\Utils::GetDomainFromEmail($oUser->PublicId);
+                        if (!empty($sDomain) && $this->isDomainSupported($sDomain)) {
+                            $iQuota = (int) $this->oModuleSettings->UserDefaultQuotaMB;
                             try {
-                                $oAccount = \Aurora\Modules\Mail\Module::Decorator()->CreateAccount($oUser->Id, $sFriendlyName, $sLogin, $sLogin, $sPassword);
-                                if ($oAccount instanceof \Aurora\Modules\Mail\Models\MailAccount) {
-                                    $iTime = $bSignMe ? 0 : time();
-                                    $sAuthToken = \Aurora\System\Api::UserSession()->Set(
-                                        [
-                                            'token'		=> 'auth',
-                                            'sign-me'		=> $bSignMe,
-                                            'id'			=> $oAccount->IdUser,
-                                            'account'		=> $oAccount->Id,
-                                            'account_type'	=> $oAccount->getName()
-                                        ],
-                                        $iTime
-                                    );
-                                    $mResult = [\Aurora\System\Application::AUTH_TOKEN_KEY => $sAuthToken];
-                                }
-                            } catch (\Exception $oException) {
-                                if ($oException instanceof \Aurora\Modules\Mail\Exceptions\Exception &&
-                                    $oException->getCode() === \Aurora\Modules\Mail\Enums\ErrorCodes::CannotLoginCredentialsIncorrect) {
-                                    \Aurora\Modules\Core\Module::Decorator()->DeleteUser($oUser->Id);
-                                }
-                                throw $oException;
+                                $sCpanelResponse = $this->executeCpanelAction(
+                                    $oCpanel,
+                                    'Email',
+                                    'add_pop',
+                                    [
+                                        'email' => $sLogin,
+                                        'password' => $sPassword,
+                                        'quota'	=> $iQuota,
+                                        'domain' => $sDomain
+                                    ]
+                                );
+                                $aParseResult = self::parseResponse($sCpanelResponse, false);
+                            } catch(\Exception $oException) {
+                                throw new ApiException(0, $oException, $oException->getMessage());
                             }
-                        } elseif (is_array($aParseResult) && isset($aParseResult['Error'])) {
-                            //If Account wasn't created - delete user
-                            $bPrevState = \Aurora\System\Api::skipCheckUserRole(true);
-                            \Aurora\Modules\Core\Module::Decorator()->DeleteUser($oUser->Id);
-                            \Aurora\System\Api::skipCheckUserRole($bPrevState);
-                            throw new \Exception($aParseResult['Error']);
+                            if (is_array($aParseResult) && isset($aParseResult['Data']) && !empty($aParseResult['Data'])) {
+                                try {
+                                    $oAccount = \Aurora\Modules\Mail\Module::Decorator()->CreateAccount($oUser->Id, $sFriendlyName, $sLogin, $sLogin, $sPassword);
+                                    if ($oAccount instanceof \Aurora\Modules\Mail\Models\MailAccount) {
+                                        $iTime = $bSignMe ? 0 : time();
+                                        $sAuthToken = \Aurora\System\Api::UserSession()->Set(
+                                            [
+                                                'token'		=> 'auth',
+                                                'sign-me'		=> $bSignMe,
+                                                'id'			=> $oAccount->IdUser,
+                                                'account'		=> $oAccount->Id,
+                                                'account_type'	=> $oAccount->getName()
+                                            ],
+                                            $iTime
+                                        );
+                                        $mResult = [\Aurora\System\Application::AUTH_TOKEN_KEY => $sAuthToken];
+                                    }
+                                } catch (\Exception $oException) {
+                                    if ($oException instanceof \Aurora\Modules\Mail\Exceptions\Exception &&
+                                        $oException->getCode() === \Aurora\Modules\Mail\Enums\ErrorCodes::CannotLoginCredentialsIncorrect) {
+                                        \Aurora\Modules\Core\Module::Decorator()->DeleteUser($oUser->Id);
+                                    }
+                                    throw $oException;
+                                }
+                            } elseif (is_array($aParseResult) && isset($aParseResult['Error'])) {
+                                //If Account wasn't created - delete user
+                                \Aurora\Modules\Core\Module::Decorator()->DeleteUser($oUser->Id);
+                                throw new \Exception($aParseResult['Error']);
+                            }
                         }
                     }
                 }
+            } finally {
+                \Aurora\System\Api::skipCheckUserRole($bPrevState);
             }
-            \Aurora\System\Api::skipCheckUserRole($bPrevState);
         }
 
         return true; // break subscriptions to prevent account creation in other modules
@@ -800,8 +804,11 @@ class Module extends \Aurora\System\Module\AbstractModule
             $cpanel_user0 = null;
             if ($cpanel_pass && !\Aurora\System\Utils::IsEncryptedValue($cpanel_pass)) {
                 $bPrevState = \Aurora\System\Api::skipCheckUserRole(true);
-                $this->Decorator()->UpdateSettings($cpanel_host, $this->oModuleSettings->CpanelPort, $cpanel_user, \Aurora\System\Utils::EncryptValue($cpanel_pass), null);
-                $bPrevState = \Aurora\System\Api::skipCheckUserRole($bPrevState);
+                try {
+                    $this->Decorator()->UpdateSettings($cpanel_host, $this->oModuleSettings->CpanelPort, $cpanel_user, \Aurora\System\Utils::EncryptValue($cpanel_pass), null);
+                } finally {
+                    $bPrevState = \Aurora\System\Api::skipCheckUserRole($bPrevState);
+                }
             } else {
                 $cpanel_pass = \Aurora\System\Utils::DecryptValue($cpanel_pass);
             }
@@ -816,8 +823,11 @@ class Module extends \Aurora\System\Module\AbstractModule
                 if ($cpanel_pass && !\Aurora\System\Utils::IsEncryptedValue($cpanel_pass)) {
                     if ($this->oModuleSettings->IsTenantSettingsExists($oTenant->Name)) {
                         $bPrevState = \Aurora\System\Api::skipCheckUserRole(true);
-                        $this->Decorator()->UpdateSettings($cpanel_host, $this->oModuleSettings->GetTenantValue($oTenant->Name, 'CpanelPort'), $cpanel_user, \Aurora\System\Utils::EncryptValue($cpanel_pass), $oTenant->Id);
-                        $bPrevState = \Aurora\System\Api::skipCheckUserRole($bPrevState);
+                        try {
+                            $this->Decorator()->UpdateSettings($cpanel_host, $this->oModuleSettings->GetTenantValue($oTenant->Name, 'CpanelPort'), $cpanel_user, \Aurora\System\Utils::EncryptValue($cpanel_pass), $oTenant->Id);
+                        } finally {
+                            $bPrevState = \Aurora\System\Api::skipCheckUserRole($bPrevState);
+                        }
                     }
                 } else {
                     $cpanel_pass = \Aurora\System\Utils::DecryptValue($cpanel_pass);
