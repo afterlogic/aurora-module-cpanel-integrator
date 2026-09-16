@@ -834,6 +834,7 @@ class Module extends \Aurora\System\Module\AbstractModule
                 $query = 'https://' . $cpanel_host . ':2087/json-api/listaccts?api.version=1&searchtype=domain&search=' . $sDomain;
 
                 $curl = curl_init();
+                // Intentionally disabled: cPanel control panels commonly run with self-signed certificates.
                 curl_setopt($curl, CURLOPT_SSL_VERIFYPEER, 0);
                 curl_setopt($curl, CURLOPT_SSL_VERIFYHOST, 0);
                 curl_setopt($curl, CURLOPT_HEADER, 0);
@@ -862,6 +863,7 @@ class Module extends \Aurora\System\Module\AbstractModule
             }
 
             $curl = curl_init();
+            // Intentionally disabled: cPanel control panels commonly run with self-signed certificates.
             curl_setopt($curl, CURLOPT_SSL_VERIFYPEER, 0);
             curl_setopt($curl, CURLOPT_SSL_VERIFYHOST, 0);
             curl_setopt($curl, CURLOPT_HEADER, 0);
