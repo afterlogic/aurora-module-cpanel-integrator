@@ -845,10 +845,8 @@ class Module extends \Aurora\System\Module\AbstractModule
                 $result = curl_exec($curl);
                 if ($result == false) {
                     \Aurora\System\Api::Log('curl_exec threw error "' . curl_error($curl) . '" for ' . $query);
-                    curl_close($curl);
                     throw new ApiException(Notifications::CanNotChangePassword);
                 } else {
-                    curl_close($curl);
                     \Aurora\System\Api::Log('..:: QUERY0 ::.. ' . $query);
                     $json_res = json_decode($result, true);
                     \Aurora\System\Api::Log('..:: RESULT0 ::.. ' . $result);
@@ -874,10 +872,8 @@ class Module extends \Aurora\System\Module\AbstractModule
             $result = curl_exec($curl);
             if ($result === false) {
                 \Aurora\System\Api::Log('curl_exec threw error "' . curl_error($curl) . '" for ' . $query);
-                curl_close($curl);
                 throw new ApiException(Notifications::CanNotChangePassword);
             } else {
-                curl_close($curl);
                 \Aurora\System\Api::Log('..:: QUERY ::.. ' . $query);
                 $json_res = json_decode($result, true);
                 \Aurora\System\Api::Log('..:: RESULT ::.. ' . $result);

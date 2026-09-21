@@ -19,7 +19,7 @@ class Aliases extends \Aurora\System\Managers\AbstractManager
     /**
      * @param \Aurora\System\Module\AbstractModule $oModule
      */
-    public function __construct(\Aurora\System\Module\AbstractModule $oModule = null)
+    public function __construct(?\Aurora\System\Module\AbstractModule $oModule = null)
     {
         parent::__construct($oModule);
     }
@@ -84,7 +84,7 @@ class Aliases extends \Aurora\System\Managers\AbstractManager
      * @param \Illuminate\Database\Eloquent\Builder $oFilter
      * @return array
      */
-    public function getAliases($iCount = 0, $iLimit = 0, \Illuminate\Database\Eloquent\Builder $oFilter = null)
+    public function getAliases($iCount = 0, $iLimit = 0, ?\Illuminate\Database\Eloquent\Builder $oFilter = null)
     {
         if ($oFilter === null) {
             $oFilter = Alias::query();
