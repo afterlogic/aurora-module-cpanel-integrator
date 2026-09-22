@@ -67,6 +67,8 @@ class Module extends \Aurora\System\Module\AbstractModule
         }
         $this->subscribeEvent('MailSignup::Signup::before', [$this, 'onAfterSignup']);
         $this->subscribeEvent('Mail::Account::ToResponseArray', array($this, 'onMailAccountToResponseArray'));
+        $this->subscribeEvent('Dav::GetPrincipalAliases', array($this, 'onGetPrincipalAliases'));
+        $this->subscribeEvent('Dav::GetPrincipalByAlias', array($this, 'onGetPrincipalByAlias'));
         $this->subscribeEvent('ChangeAccountPassword', array($this, 'onChangeAccountPassword'));
         $this->subscribeEvent('Mail::UpdateForward::before', array($this, 'onBeforeUpdateForward'));
         $this->subscribeEvent('Mail::GetForward::before', array($this, 'onBeforeGetForward'));
@@ -390,6 +392,38 @@ class Module extends \Aurora\System\Module\AbstractModule
             && $oAlias->IdUser === $oUser->Id
         ) {
             $aArgs['Alias'] = $oAlias;
+        }
+    }
+
+    /**
+     * Adds cPanel aliases of the user to the list of principal addresses in DAV.
+     * Uses aliases stored in the database only, without requests to cPanel.
+     * @param array $aArguments
+     * @param mixed $mResult
+     */
+    public function onGetPrincipalAliases($aArguments, &$mResult)
+    {
+        $oUser = isset($aArguments['PublicId']) ? \Aurora\Api::getUserByPublicId($aArguments['PublicId']) : null;
+        if ($oUser instanceof \Aurora\Modules\Core\Models\User) {
+            $aAliases = $this->getManager('Aliases')->getAliasesByUserId($oUser->Id)->pluck('Email')->toArray();
+            $mResult = array_merge(is_array($mResult) ? $mResult : [], $aAliases);
+        }
+    }
+
+    /**
+     * Finds the owner of a cPanel alias address for DAV, so an invite addressed
+     * to the alias can be resolved to the owning principal.
+     * @param array $aArguments
+     * @param mixed $mResult
+     */
+    public function onGetPrincipalByAlias($aArguments, &$mResult)
+    {
+        if ($mResult === null && isset($aArguments['Alias'])) {
+            $oAlias = \Aurora\Modules\CpanelIntegrator\Models\Alias::where('Email', $aArguments['Alias'])->first();
+            $oUser = $oAlias ? \Aurora\Api::getUserById($oAlias->IdUser) : null;
+            if ($oUser instanceof \Aurora\Modules\Core\Models\User) {
+                $mResult = $oUser->PublicId;
+            }
         }
     }
 
